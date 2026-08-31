@@ -94,21 +94,28 @@ unpacked `src/` but keeps downloaded tarballs in `dist/`.
 
 ## Doom IWAD
 
-Desktop lists `doom` in `packages.txt`. Building the binary needs a real IWAD:
+Desktop lists `doom` in `packages.txt`. IWAD discovery (`scripts/find-doom-iwad.sh`):
+
+1. `ISD_DOOM_IWAD=/path/to/doom1.wad` (explicit)
+2. `rootfs/local/usr/share/doom/` or `…/ken/games/` (`doom1.wad` / `DOOM1.WAD`)
+3. Lab tree `../universal-doom/DOOM1.WAD` (sibling of ISD or IR0, or
+   `$HOME/Escritorio|Desktop/universal-doom`)
 
 ```bash
-export ISD_DOOM_IWAD=/path/to/doom1.wad   # or DOOM.WAD
+# Usually enough when ../universal-doom/DOOM1.WAD exists:
 make build PROFILE=desktop
+# Or force a path:
+export ISD_DOOM_IWAD=/path/to/doom1.wad
+make build-doom PROFILE=desktop
 ```
 
-If no IWAD is set (and none under `rootfs/local/usr/share/doom/`):
+If **no** IWAD is found:
 
 - **TTY:** asks whether to continue the ISD build **without** compiling Doom.
 - **Non-interactive:** skips Doom (exit 0) unless `ISD_DOOM_REQUIRE=1` (hard fail)
   or `ISD_DOOM_SKIP=1` (skip, no prompt).
-- Rootfs simply omits `/usr/ken/games/doom` until you set `ISD_DOOM_IWAD` and
-  rebuild (`rm out/<arch>/stamps/packages/doom && make build-doom`).
+- Rootfs omits `/usr/ken/games/doom` until an IWAD is found and you rebuild
+  (`rm out/<arch>/stamps/packages/doom && make build-doom`).
 
-`CONFIG_PKG_DOOM=y` in `.isdconfig` is still scrubbed to `n` on validate when
-`ISD_DOOM_IWAD` is unset (optional toggle path); the profile package list is
-independent and uses the skip/prompt path above.
+`CONFIG_PKG_DOOM=y` is scrubbed to `n` on validate **only** when no IWAD is
+found. With `../universal-doom/DOOM1.WAD` present, `=y` is kept.
