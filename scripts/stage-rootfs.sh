@@ -116,6 +116,8 @@ install -m 0755 "$STAGE_BIN/ir0_firstboot" "${DEST}/sbin/ir0-firstboot"
 install -m 0755 "$STAGE_BIN/ir0_recovery" "${DEST}/sbin/ir0-recovery"
 install -m 0755 "$STAGE_BIN/mount_root_rw" "${DEST}/sbin/mount-root-rw"
 install -m 0755 "$STAGE_BIN/ir0_status" "${DEST}/bin/ir0-status"
+# BusyBox has no lsblk applet; ship the product one.
+install -m 0755 "$STAGE_BIN/lsblk" "${DEST}/bin/lsblk"
 if [ -x "$STAGE_BIN/ir0_keymap" ]; then
 	install -m 0755 "$STAGE_BIN/ir0_keymap" "${DEST}/usr/bin/keymap"
 	ln -sf ../usr/bin/keymap "${DEST}/bin/keymap"
@@ -138,14 +140,26 @@ MANIFEST="${PROF_DIR}/applets.txt"
 if [ ! -f "$MANIFEST" ]; then
 	MANIFEST="${ROOT}/packages/busybox/required_applets.txt"
 fi
+# Snapshot the applet list once instead of per applet.
+#
+# `busybox --list | grep -qx "$ap"` is unsafe under `set -o pipefail`: grep -q
+# exits on the first match, busybox then dies of SIGPIPE (141) and the pipeline
+# reports failure even though the applet is present. With 131 applets the list
+# fit in a single write and the race stayed hidden; at 386 it rejected a
+# different, perfectly present applet on nearly every run.
+BB_APPLETS="$("${DEST}/bin/busybox" --list)"
+
 link_applet() {
 	local ap="$1"
 	[ -n "$ap" ] || return 0
 	[ "$ap" = "busybox" ] && return 0
-	if ! "${DEST}/bin/busybox" --list 2>/dev/null | grep -qx "$ap"; then
+	case $'\n'"${BB_APPLETS}"$'\n' in
+	*$'\n'"${ap}"$'\n'*) ;;
+	*)
 		echo "✗ applet '$ap' not in busybox-full — rebuild packages/busybox" >&2
 		return 1
-	fi
+		;;
+	esac
 	ln -f "${DEST}/bin/busybox" "${DEST}/bin/${ap}"
 }
 while read -r ap; do
@@ -199,6 +213,25 @@ if [ -f "${STAGE_BIN}/doas" ] && { manifest_has opendoas || [ "${INSTALL_DOAS:-0
 fi
 if [ -f "${STAGE_BIN}/nano" ] && { manifest_has nano || [ "${INSTALL_NANO:-0}" = "1" ]; }; then
 	install -m 0755 "${STAGE_BIN}/nano" "${DEST}/usr/bin/nano"
+fi
+if [ -f "${STAGE_BIN}/iv" ] && manifest_has iv; then
+	install -m 0755 "${STAGE_BIN}/iv" "${DEST}/usr/bin/iv"
+	ln -sf ../usr/bin/iv "${DEST}/bin/iv"
+fi
+if manifest_has pack-extract; then
+	if [ -f "${STAGE_BIN}/pack" ]; then
+		install -m 0755 "${STAGE_BIN}/pack" "${DEST}/usr/bin/pack"
+		ln -sf ../usr/bin/pack "${DEST}/bin/pack"
+	fi
+	if [ -f "${STAGE_BIN}/unpack" ]; then
+		install -m 0755 "${STAGE_BIN}/unpack" "${DEST}/usr/bin/unpack"
+		ln -sf ../usr/bin/unpack "${DEST}/bin/unpack"
+	fi
+	# `extract` is the pre-1.6 name, kept as an alias.
+	if [ -f "${STAGE_BIN}/extract" ]; then
+		install -m 0755 "${STAGE_BIN}/extract" "${DEST}/usr/bin/extract"
+		ln -sf ../usr/bin/extract "${DEST}/bin/extract"
+	fi
 fi
 if [ -f "${STAGE_BIN}/make" ] && manifest_has gnumake; then
 	install -m 0755 "${STAGE_BIN}/make" "${DEST}/usr/bin/make"

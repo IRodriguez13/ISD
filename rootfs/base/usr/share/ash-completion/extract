@@ -1,0 +1,5 @@
+# extract — archive extractor (libarchive)
+-h
+--help
+-v
+--version

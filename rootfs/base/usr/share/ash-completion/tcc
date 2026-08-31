@@ -1,0 +1,26 @@
+# TinyCC
+-h
+--help
+-v
+-c
+-o
+-I
+-D
+-U
+-L
+-l
+-static
+-shared
+-rdynamic
+-run
+-E
+-P
+-g
+-b
+-bt
+-w
+-Wall
+-Werror
+-bench
+-print-search-dirs
+-print-libgcc-file-name

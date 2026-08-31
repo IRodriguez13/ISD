@@ -107,8 +107,9 @@ echo "-- D packages / scrub / clean --"
 CFGD="$TMP/isdconfig-d"
 PROFILE=minimal ISD_CONFIG="$CFGD" python3 scripts/isdconfig.py --config "$CFGD" defconfig --force
 sed -i 's/CONFIG_PKG_DOOM=n/CONFIG_PKG_DOOM=y/' "$CFGD"
+# Scrub only when no IWAD is discoverable (disable autodiscover for this check).
 set +e
-out=$(env -u ISD_DOOM_IWAD PROFILE=minimal ISD_CONFIG="$CFGD" \
+out=$(env -u ISD_DOOM_IWAD ISD_DOOM_SKIP_AUTODISCOVER=1 PROFILE=minimal ISD_CONFIG="$CFGD" \
 	python3 scripts/isdconfig.py --config "$CFGD" validate 2>&1)
 rc=$?
 set -e
@@ -116,7 +117,38 @@ set -e
 	&& ok "D DOOM scrubbed to n without IWAD" || bad "D DOOM: rc=$rc out=$out"
 echo "$out" | grep -qi 'DOOM\|IWAD\|doom' && ok "D DOOM message" || ok "D DOOM scrub silent ok"
 
+# When an IWAD exists (lab universal-doom or explicit), DOOM=y must stick.
+CFGD2="$TMP/isdconfig-d2"
+PROFILE=minimal ISD_CONFIG="$CFGD2" python3 scripts/isdconfig.py --config "$CFGD2" defconfig --force
+sed -i 's/CONFIG_PKG_DOOM=n/CONFIG_PKG_DOOM=y/' "$CFGD2"
+if bash scripts/find-doom-iwad.sh >/dev/null 2>&1; then
+	set +e
+	out2=$(env -u ISD_DOOM_IWAD -u ISD_DOOM_SKIP_AUTODISCOVER \
+		PROFILE=minimal ISD_CONFIG="$CFGD2" \
+		python3 scripts/isdconfig.py --config "$CFGD2" validate 2>&1)
+	rc2=$?
+	set -e
+	[ "$rc2" -eq 0 ] && grep -q 'CONFIG_PKG_DOOM=y' "$CFGD2" \
+		&& ok "D DOOM=y kept when IWAD autodiscovered" \
+		|| bad "D DOOM kept: rc=$rc2 cfg=$(grep DOOM "$CFGD2") out=$out2"
+else
+	# CI without a lab WAD: explicit temp IWAD still keeps =y.
+	fake_wad="$TMP/fake.wad"
+	printf 'IWAD' >"$fake_wad"
+	set +e
+	out2=$(env ISD_DOOM_IWAD="$fake_wad" ISD_DOOM_SKIP_AUTODISCOVER=1 \
+		PROFILE=minimal ISD_CONFIG="$CFGD2" \
+		python3 scripts/isdconfig.py --config "$CFGD2" validate 2>&1)
+	rc2=$?
+	set -e
+	[ "$rc2" -eq 0 ] && grep -q 'CONFIG_PKG_DOOM=y' "$CFGD2" \
+		&& ok "D DOOM=y kept with ISD_DOOM_IWAD" \
+		|| bad "D DOOM kept explicit: rc=$rc2 out=$out2"
+fi
+
 [ -f packages/tinycc/build.sh ] && ok "D packages/tinycc present" || bad "D no tinycc recipe"
+[ -x scripts/find-doom-iwad.sh ] || [ -f scripts/find-doom-iwad.sh ] \
+	&& ok "D find-doom-iwad.sh present" || bad "D missing find-doom-iwad.sh"
 [ -f packages/gnumake/build.sh ] && ok "D packages/gnumake present" || bad "D no gnumake recipe"
 [ -f packages/doom/build.sh ] && ok "D packages/doom present" || bad "D no doom recipe"
 [ -f lib/ir0_keymap.c ] && [ -f services/ir0_keymap.c ] \

@@ -208,8 +208,10 @@ profiles-check: compat-links
 
 # --- rootfs / image ----------------------------------------------------------
 
+# stage-rootfs.sh is a prerequisite: editing the installer must restage the
+# image, otherwise a newly installed binary silently never reaches the disk.
 $(STAMP_ROOTFS): $(PKG_STAMPS) $(STAMP_SERVICES) $(STAMP_UAPI) \
-		$(ROOTFS_INPUTS) scripts/stamp-run.sh
+		$(ROOTFS_INPUTS) scripts/stage-rootfs.sh scripts/stamp-run.sh
 	@chmod +x scripts/stage-rootfs.sh scripts/stamp-run.sh
 	@mkdir -p "$(ROOTFS_DIR)" "$(dir $@)"
 	@scripts/stamp-run.sh $@ -- env IR0_ROOT="$(IR0_ROOT)" \

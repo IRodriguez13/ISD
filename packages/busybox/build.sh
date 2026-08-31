@@ -17,6 +17,20 @@ if [ ! -f "$SRC/Makefile" ]; then
 	exit 1
 fi
 
+# IR0 BusyBox patches (flag tab-completion, etc.). Skip if already in tree.
+if [ -d "${PKG}/ir0-patches" ]; then
+	if grep -q complete_command_flags "$SRC/libbb/lineedit.c" 2>/dev/null; then
+		echo "  BUSYBOX IR0 patches already applied (complete_command_flags present)"
+	else
+		shopt -s nullglob
+		for p in "${PKG}/ir0-patches/"*.patch; do
+			echo "  BUSYBOX applying $(basename "$p")"
+			patch -p1 -N -d "$SRC" -i "$p"
+		done
+		shopt -u nullglob
+	fi
+fi
+
 mkdir -p "$OUT_DIR"
 chmod +x "${ROOT}/scripts/busybox_apply_fragment.sh"
 

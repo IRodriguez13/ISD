@@ -20,7 +20,16 @@ DEFAULT_CFG = ROOT / ".isdconfig"
 FORBIDDEN_DISABLE = ("BUSYBOX", "RUNIT")
 
 # Optional package extras (packages/<name>/).
-EXTRAS = ("NANO", "NCURSES", "OPENDOAS", "TINYCC", "GNUMAKE", "DOOM")
+EXTRAS = (
+    "NANO",
+    "NCURSES",
+    "OPENDOAS",
+    "TINYCC",
+    "GNUMAKE",
+    "DOOM",
+    "IV",
+    "PACK_EXTRACT",
+)
 
 # BusyBox applet extras — link /bin/<applet> when =y (binary must include applet).
 # short → applet name
@@ -30,7 +39,9 @@ APPLETS: dict[str, str] = {
 
 # Reserved for extras that need a non-lowercase package dir name.
 # DOOM → packages/doom/ (packaged); keep map empty unless a rename is needed.
-FUTURE_PACKAGES: dict[str, str] = {}
+FUTURE_PACKAGES: dict[str, str] = {
+    "PACK_EXTRACT": "pack-extract",
+}
 
 # If KEY=y, ensure each dep is y (or reject).
 AUTO_DEPS = {
@@ -48,6 +59,8 @@ EXTRA_DEFAULTS = {
     "TINYCC": "n",
     "GNUMAKE": "n",
     "DOOM": "n",
+    "IV": "n",
+    "PACK_EXTRACT": "n",
 }
 APPLET_DEFAULTS = {k: "y" for k in APPLETS}
 
@@ -134,6 +147,32 @@ def recipe_ready(short: str) -> bool:
     return (ROOT / "packages" / d / "build.sh").is_file()
 
 
+def find_doom_iwad() -> Path | None:
+    """Locate an IWAD (same rules as scripts/find-doom-iwad.sh)."""
+    script = ROOT / "scripts" / "find-doom-iwad.sh"
+    if not script.is_file():
+        iwad = os.environ.get("ISD_DOOM_IWAD", "").strip()
+        if iwad and Path(iwad).is_file():
+            return Path(iwad)
+        return None
+    import subprocess
+
+    try:
+        proc = subprocess.run(
+            ["bash", str(script)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=os.environ.copy(),
+        )
+    except OSError:
+        return None
+    path = (proc.stdout or "").strip()
+    if proc.returncode == 0 and path and Path(path).is_file():
+        return Path(path)
+    return None
+
+
 def refuse_enable_pkg(short: str) -> str | None:
     """If short cannot be enabled (=y), return a warning; else None."""
     if short in FORBIDDEN_DISABLE:
@@ -147,11 +186,11 @@ def refuse_enable_pkg(short: str) -> str | None:
             f"(forced n). Interim: IR0_LEGACY_USERSPACE=1 make load-userspace-devtools"
         )
     if short == "DOOM":
-        iwad = os.environ.get("ISD_DOOM_IWAD", "").strip()
-        if not iwad or not Path(iwad).is_file():
+        if find_doom_iwad() is None:
             return (
-                "CONFIG_PKG_DOOM=y ignored: set ISD_DOOM_IWAD to an existing "
-                "IWAD file (forced n)"
+                "CONFIG_PKG_DOOM=y ignored: no IWAD found "
+                "(set ISD_DOOM_IWAD or place DOOM1.WAD in ../universal-doom/) "
+                "(forced n)"
             )
     return None
 

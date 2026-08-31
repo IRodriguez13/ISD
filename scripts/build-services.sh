@@ -8,6 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 MODE="${1:-product}"
 SVC="${ROOT}/services"
+NATIVES="${ROOT}/natives"
 LIB="${ROOT}/lib"
 SYSROOT="${IR0_UAPI_SYSROOT:-${ROOT}/sysroot}"
 AUTH_LIB="${LIB}/ir0_auth.c"
@@ -17,6 +18,15 @@ CFLAGS="-static -Os -I${LIB}"
 
 PRODUCT_STAGE="${PRODUCT_OUT}/stage-bin"
 SMOKE_STAGE="${SMOKE_OUT}/stage-bin"
+
+# Native utilities live in natives/ and must build on Linux too (natives/README.md).
+cc_native()
+{
+	local outdir="$1" name="$2" src="$3"
+	shift 3
+	# shellcheck disable=SC2086
+	"$CC" $CFLAGS -o "${outdir}/${name}" "${NATIVES}/${src}" "$@"
+}
 
 cc_one()
 {
@@ -39,6 +49,7 @@ build_product()
 	cc_one "$PRODUCT_STAGE" ir0_passwd ir0_passwd.c "$AUTH_LIB"
 	cc_one "$PRODUCT_STAGE" ir0_adduser ir0_adduser.c "$AUTH_LIB"
 	cc_one "$PRODUCT_STAGE" ir0_status ir0_status.c
+	cc_native "$PRODUCT_STAGE" lsblk lsblk.c
 	cc_one "$PRODUCT_STAGE" ir0_keymap ir0_keymap.c "$KEYMAP_LIB"
 	cc_one "$PRODUCT_STAGE" ir0_recovery ir0_recovery.c
 	cc_one "$PRODUCT_STAGE" mount_root_rw mount_root_rw.c

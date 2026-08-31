@@ -82,7 +82,14 @@ def parse_log(log: Path) -> dict[str, tuple[str, str]]:
 
 
 def probe_host_help(binary: Path, applet: str) -> tuple[str, str]:
-    """Classify applet --help on the host binary (flags/usage gate)."""
+    """Presence probe only: does the host binary carry this applet?
+
+    Runs on the build host, so it says nothing about IR0 behavior. It can
+    only tell "not in the binary" (unavailable) from "in the binary but
+    never exercised under IR0" (unverified). Promoting these to "supported"
+    is what made the matrix claim 381 working applets while the guest run
+    covered 37.
+    """
     try:
         proc = subprocess.run(
             [str(binary), applet, "--help"],
@@ -92,15 +99,11 @@ def probe_host_help(binary: Path, applet: str) -> tuple[str, str]:
             timeout=3,
         )
     except subprocess.TimeoutExpired:
-        return "unavailable", "host-help(timeout)"
+        return "unverified", "host-help(timeout)"
     out = (proc.stdout or "") + (proc.stderr or "")
     if "applet not found" in out:
         return "unavailable", "host-help(missing)"
-    if "BusyBox" in out or "Usage:" in out or proc.returncode == 0:
-        return "supported", "host-help"
-    if proc.returncode != 0 and "unrecognized option" in out:
-        return "partial", "host-help(no-long-opts)"
-    return "partial", f"host-help(ec={proc.returncode})"
+    return "unverified", "host-help(present)"
 
 
 def build_matrix_host_help(binary: Path) -> list[tuple[str, str, str]]:
@@ -126,7 +129,7 @@ def build_matrix(log: Path, binary: Path) -> list[tuple[str, str, str]]:
         elif applet in from_evidence:
             status, evidence = from_evidence[applet]
         else:
-            # Guest matrix covers hot paths; fill the rest with host --help.
+            # Guest matrix covers hot paths; the rest stay unverified.
             status, evidence = probe_host_help(binary, applet)
         rows.append((applet, status, evidence))
     return rows
