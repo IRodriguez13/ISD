@@ -8,3 +8,6 @@ tinycc
 gnumake
 # Doomgeneric (IR0 fb/evdev port) + IWAD staged via ISD_DOOM_IWAD.
 doom
+# Own C tools: iv (editor) + pack/extract (libarchive + zlib).
+iv
+pack-extract

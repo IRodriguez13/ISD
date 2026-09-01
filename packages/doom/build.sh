@@ -10,7 +10,7 @@
 # the ISD build without Doom until the tester provides one.
 #
 # Env:
-#   ISD_DOOM_IWAD=/path/to/doom1.wad   — required to build
+#   ISD_DOOM_IWAD=/path/to/doom1.wad   — optional; else scripts/find-doom-iwad.sh
 #   ISD_DOOM_REQUIRE=1                 — missing IWAD → hard fail (CI)
 #   ISD_DOOM_SKIP=1                    — missing IWAD → skip, no prompt
 #
@@ -27,6 +27,7 @@ PORT="${DOOM_DIR}/doomgeneric_ir0.c"
 UPSTREAM="${DOOM_DIR}/upstream/doomgeneric"
 OUT_DIR="${PRODUCT_OUT}/stage-bin"
 RUNTIME="${PRODUCT_OUT}/doom-runtime"
+FIND_IWAD="${ROOT}/scripts/find-doom-iwad.sh"
 
 doom_skip()
 {
@@ -89,22 +90,15 @@ if [ ! -f "$PORT" ] || [ ! -d "$UPSTREAM" ]; then
 	exit 1
 fi
 
-# Resolve IWAD: env only (never invent a WAD). Optional lab copy under rootfs/local.
-IWAD="${ISD_DOOM_IWAD:-}"
-if [ -z "$IWAD" ] || [ ! -f "$IWAD" ]; then
-	for cand in \
-		"${ROOT}/rootfs/local/usr/share/doom/doom1.wad" \
-		"${ROOT}/rootfs/local/usr/ken/games/doom1.wad"
-	do
-		if [ -f "$cand" ]; then
-			IWAD="$cand"
-			break
-		fi
-	done
+# Resolve IWAD via shared finder (env, rootfs/local, ../universal-doom, …).
+IWAD=""
+if [ -x "$FIND_IWAD" ] || [ -f "$FIND_IWAD" ]; then
+	IWAD="$("$FIND_IWAD" 2>/dev/null || true)"
 fi
 if [ -z "${IWAD:-}" ] || [ ! -f "$IWAD" ]; then
 	doom_ask_continue_without
 fi
+echo "  DOOM    IWAD=${IWAD}"
 
 mkdir -p "$OUT_DIR" "$RUNTIME"
 rm -f "${RUNTIME}/SKIPPED"

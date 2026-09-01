@@ -1,0 +1,13 @@
+--- a/coreutils/ls.c
++++ b/coreutils/ls.c
+@@ -369,9 +369,10 @@
+    045 gray foreground               057 white background
+ */
+ #define COLOR(mode) ( \
+ 	/*un  fi  chr  -  dir  -  blk  -  file -  link -  sock -   -  exe */ \
+-	"\037\043\043\045\042\045\043\043\000\045\044\045\043\045\045\040" \
++	/* dir: white (045/37) — IR0 soft FB palette; classic blue is unreadable */ \
++	"\037\043\043\045\045\045\043\043\000\045\044\045\043\045\045\040" \
+ 	[TYPEINDEX(mode)])
+ /* Select normal (0) [actually "reset all"] or bold (1)
+  * (other attributes are 2:dim 4:underline 5:blink 7:reverse,

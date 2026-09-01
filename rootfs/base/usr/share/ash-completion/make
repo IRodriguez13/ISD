@@ -1,0 +1,25 @@
+# GNU make
+-h
+--help
+-v
+--version
+-C
+-f
+-j
+-k
+-n
+-s
+-B
+-e
+-i
+-r
+-w
+--always-make
+--dry-run
+--keep-going
+--silent
+--quiet
+--jobs
+--directory
+--file
+--makefile

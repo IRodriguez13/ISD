@@ -1,0 +1,5 @@
+# unpack — archive extractor (libarchive)
+-h
+--help
+-v
+--version

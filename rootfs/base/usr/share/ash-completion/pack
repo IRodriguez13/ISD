@@ -1,0 +1,5 @@
+# pack — archive creator (libarchive); formats are positional args, not flags.
+-h
+--help
+-v
+--version

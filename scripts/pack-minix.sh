@@ -71,6 +71,8 @@ if [ -f "${TREE}/usr/sbin/adduser" ]; then
 	$INJECT --hardlink "$DISK" usr/sbin/adduser sbin/adduser
 fi
 inject_file "${TREE}/bin/ir0-status" bin/ir0-status
+# BusyBox has no lsblk applet; the product ships its own.
+inject_file "${TREE}/bin/lsblk" bin/lsblk
 if [ -f "${TREE}/usr/bin/keymap" ]; then
 	inject_file "${TREE}/usr/bin/keymap" usr/bin/keymap
 	inject_file "${TREE}/usr/bin/keymap" bin/keymap
@@ -87,6 +89,23 @@ if [ -f "${TREE}/usr/bin/doas" ]; then
 fi
 if [ -f "${TREE}/usr/bin/nano" ]; then
 	inject_file "${TREE}/usr/bin/nano" usr/bin/nano
+fi
+# iv (line-oriented editor) + pack/unpack (libarchive wrappers).
+if [ -f "${TREE}/usr/bin/iv" ]; then
+	inject_file "${TREE}/usr/bin/iv" usr/bin/iv
+	$INJECT --hardlink "$DISK" usr/bin/iv bin/iv
+fi
+if [ -f "${TREE}/usr/bin/pack" ]; then
+	inject_file "${TREE}/usr/bin/pack" usr/bin/pack
+	$INJECT --hardlink "$DISK" usr/bin/pack bin/pack
+fi
+if [ -f "${TREE}/usr/bin/unpack" ]; then
+	inject_file "${TREE}/usr/bin/unpack" usr/bin/unpack
+	$INJECT --hardlink "$DISK" usr/bin/unpack bin/unpack
+fi
+if [ -f "${TREE}/usr/bin/extract" ]; then
+	inject_file "${TREE}/usr/bin/extract" usr/bin/extract
+	$INJECT --hardlink "$DISK" usr/bin/extract bin/extract
 fi
 # GNU make (CONFIG_PKG_GNUMAKE) — inject real ELF, then PATH-friendly hardlinks.
 if [ -f "${TREE}/usr/bin/make" ]; then
@@ -110,6 +129,8 @@ inject_tree_files() {
 	done < <(find "${TREE}/${base}" -type f | LC_ALL=C sort)
 }
 inject_tree_files lib/tcc
+# Ash tab-completion snippets (rootfs/base → TREE via stage-rootfs).
+inject_tree_files usr/share/ash-completion
 # CRT / libc.a for guest linking (also mirrored under lib/tcc by stage-rootfs).
 if [ -f "${TREE}/usr/lib/crt1.o" ]; then
 	inject_file "${TREE}/usr/lib/crt1.o" usr/lib/crt1.o
@@ -176,6 +197,9 @@ fi
 VERIFY_EXTRA=()
 [ -f "${TREE}/usr/bin/nano" ] && VERIFY_EXTRA+=(/usr/bin/nano)
 [ -f "${TREE}/usr/bin/doas" ] && VERIFY_EXTRA+=(/usr/bin/doas)
+[ -f "${TREE}/usr/bin/iv" ] && VERIFY_EXTRA+=(/usr/bin/iv /bin/iv)
+[ -f "${TREE}/usr/bin/pack" ] && VERIFY_EXTRA+=(/usr/bin/pack /bin/pack)
+[ -f "${TREE}/usr/bin/extract" ] && VERIFY_EXTRA+=(/usr/bin/extract /bin/extract)
 [ -f "${TREE}/usr/bin/make" ] && VERIFY_EXTRA+=(/usr/bin/make /bin/make)
 [ -f "${TREE}/usr/bin/tcc" ] && VERIFY_EXTRA+=(/usr/bin/tcc /bin/tcc /bin/cc /lib/tcc/libtcc1.a)
 

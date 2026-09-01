@@ -1,0 +1,19 @@
+# iv — line-oriented editor
+-h
+--help
+-v
+--version
+-n
+--number
+-r
+--readonly
+-b
+--backup
+-c
+--clean
+-l
+--list
+-s
+--show
+-m
+--meta

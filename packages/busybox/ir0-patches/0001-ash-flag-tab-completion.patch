@@ -1,0 +1,228 @@
+diff -Naur a/include/libbb.h b/include/libbb.h
+--- a/include/libbb.h
++++ b/include/libbb.h
+@@ -1424,6 +1424,9 @@
+ extern void (*die_func)(void);
+ void xfunc_die(void) NORETURN FAST_FUNC;
+ void bb_show_usage(void) NORETURN FAST_FUNC;
++/* Pointer into usage blob for applet (NULL if unknown / no help). Valid while
++ * process lives when FEATURE_COMPRESS_USAGE is off; do not free. */
++const char *bb_get_applet_usage(const char *name) FAST_FUNC;
+ void bb_error_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
+ void bb_simple_error_msg(const char *s) FAST_FUNC;
+ void bb_error_msg_and_die(const char *s, ...) __attribute__ ((noreturn, format (printf, 1, 2))) FAST_FUNC;
+diff -Naur a/libbb/appletlib.c b/libbb/appletlib.c
+--- a/libbb/appletlib.c
++++ b/libbb/appletlib.c
+@@ -124,6 +124,48 @@
+ #endif /* FEATURE_COMPRESS_USAGE */
+ 
+ 
++#if ENABLE_SHOW_USAGE && !defined(SINGLE_APPLET_STR)
++/* IR0: expose usage text for ash flag tab-completion (lineedit). */
++const char *FAST_FUNC bb_get_applet_usage(const char *name)
++{
++	const char *p;
++	const char *usage_string;
++	int ap;
++	const char *base;
++
++	if (!name || !name[0])
++		return NULL;
++	base = bb_get_last_path_component_nostrip(name);
++	ap = find_applet_by_name(base);
++	if (ap < 0)
++		return NULL;
++	usage_string = p = unpack_usage_messages();
++	if (!usage_string)
++		return NULL;
++	while (ap) {
++		while (*p++)
++			continue;
++		ap--;
++	}
++	if (*p == '\b') {
++		if (ENABLE_FEATURE_CLEAN_UP && ENABLE_FEATURE_COMPRESS_USAGE)
++			dealloc_usage_messages((char *)usage_string);
++		return NULL;
++	}
++	/* With COMPRESS_USAGE the buffer is heap; leak one unpack for the
++	 * process lifetime so callers can keep the pointer. Uncompressed
++	 * builds point into a static blob — no leak.
++	 */
++	(void)usage_string;
++	return p;
++}
++#else
++const char *FAST_FUNC bb_get_applet_usage(const char *name UNUSED_PARAM)
++{
++	return NULL;
++}
++#endif
++
+ void FAST_FUNC bb_show_usage(void)
+ {
+ 	if (ENABLE_SHOW_USAGE) {
+diff -Naur a/libbb/lineedit.c b/libbb/lineedit.c
+--- a/libbb/lineedit.c
++++ b/libbb/lineedit.c
+@@ -1201,11 +1201,130 @@
+ 	return s;
+ }
+ 
++/* IR0: first shell word of the line (command name) for flag completion. */
++static char *dup_cmdline_command(const char *line)
++{
++	const char *s = line;
++	const char *e;
++
++	while (*s == ' ')
++		s++;
++	if (!*s)
++		return NULL;
++	e = s;
++	while (*e && *e != ' ' && *e != '\t'
++	       && *e != '<' && *e != '>' && *e != '|'
++	       && *e != '&' && *e != ';')
++		e++;
++	return xstrndup(s, (size_t)(e - s));
++}
++
++static void try_add_flag(const char *opt, unsigned opt_len, const char *pfx)
++{
++	char *s;
++
++	if (opt_len < 2 || opt[0] != '-')
++		return;
++	s = xstrndup(opt, opt_len);
++	if (is_prefixed_with(s, pfx))
++		add_match(s);
++	else
++		free(s);
++}
++
++/*
++ * Parse BusyBox usage text for -x / --long tokens and optional
++ * /usr/share/ash-completion/<cmd> (one flag per line).
++ */
++static void complete_command_flags(const char *cmd, const char *pfx)
++{
++	const char *usage;
++	const char *s;
++	char path[160];
++	FILE *fp;
++	char line[96];
++
++	if (!cmd || !pfx || pfx[0] != '-')
++		return;
++
++	usage = bb_get_applet_usage(cmd);
++	if (usage) {
++		for (s = usage; *s; s++) {
++			/* full_usage lines: "\n\t-x\t..." or "\n\t--long..." */
++			if (s[0] == '\n' && s[1] == '\t' && s[2] == '-') {
++				const char *o = s + 2;
++				const char *e;
++
++				if (o[1] == '-') {
++					e = o + 2;
++					while (*e && (isalnum(*e) || *e == '-' || *e == '_'))
++						e++;
++				} else {
++					e = o + 1;
++					while (*e && *e != '\t' && *e != '\n' && *e != ' ')
++						e++;
++				}
++				try_add_flag(o, (unsigned)(e - o), pfx);
++				s = e - 1;
++				continue;
++			}
++			/* trivial clusters: [-abcDe...] or [--long] */
++			if (s[0] == '[' && s[1] == '-') {
++				const char *p = s + 2;
++
++				while (*p && *p != ']') {
++					if (p[0] == '-' && p[1] == '-') {
++						const char *e = p + 2;
++
++						while (*e && *e != ']' && *e != '|'
++						       && *e != ' ' && *e != '\t')
++							e++;
++						try_add_flag(p, (unsigned)(e - p), pfx);
++						p = e;
++						continue;
++					}
++					if (*p != ' ' && *p != '|' && *p != '-') {
++						char shortopt[3];
++
++						shortopt[0] = '-';
++						shortopt[1] = *p;
++						shortopt[2] = '\0';
++						try_add_flag(shortopt, 2, pfx);
++					}
++					p++;
++				}
++				s = p;
++				continue;
++			}
++		}
++	}
++
++	/* Non-applet / extra flags (iv, pack, nano, …). */
++	snprintf(path, sizeof(path), "/usr/share/ash-completion/%s",
++		bb_get_last_path_component_nostrip(cmd));
++	fp = fopen(path, "r");
++	if (!fp)
++		return;
++	while (fgets(line, (int)sizeof(line), fp)) {
++		char *nl = strchr(line, '\n');
++		unsigned len;
++
++		if (nl)
++			*nl = '\0';
++		if (!line[0] || line[0] == '#')
++			continue;
++		len = strlen(line);
++		try_add_flag(line, len, pfx);
++	}
++	fclose(fp);
++}
++
+ /* Do TAB completion */
+ static NOINLINE void input_tab(smallint *lastWasTab)
+ {
+ 	char *chosen_match;
+ 	char *match_buf;
++	char *cmd_name;
+ 	size_t len_found;
+ 	/* Length of string used for matching */
+ 	unsigned match_pfx_len = match_pfx_len;
+@@ -1251,6 +1370,7 @@
+ 		cursor_mb = strlen(match_buf);
+ 	}
+ # endif
++	cmd_name = dup_cmdline_command(match_buf);
+ 	find_type = build_match_prefix(match_buf);
+ 
+ 	/* Free up any memory already allocated */
+@@ -1263,11 +1383,19 @@
+ 		if (match_buf[0] == '~' && strchr(match_buf, '/') == NULL)
+ 			match_pfx_len = complete_username(match_buf);
+ # endif
+-	/* If complete_username() did not match,
++	/* Flag completion: "ls -<TAB>" / "grep --<TAB>" */
++	if (!matches && match_buf[0] == '-' && cmd_name
++	    && find_type != FIND_EXE_ONLY) {
++		complete_command_flags(cmd_name, match_buf);
++		match_pfx_len = strlen(match_buf);
++	}
++	/* If complete_username()/flags did not match,
+ 	 * try to match a command in $PATH, or a directory, or a file */
+ 	if (!matches)
+ 		match_pfx_len = complete_cmd_dir_file(match_buf, find_type);
+ 
++	free(cmd_name);
++
+ 	/* Account for backslashes which will be inserted
+ 	 * by quote_special_chars() later */
+ 	{

@@ -35,7 +35,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 	applet="${line%%#*}"
 	applet="$(echo "$applet" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 	[[ -z "$applet" ]] && continue
-	if ! printf '%s\n' "$LIST" | grep -qx "$applet"; then
+	# Prefer command grep: interactive shells may alias grep --color; '[' is not BRE.
+	if ! printf '%s\n' "$LIST" | command grep -Fqx -- "$applet"; then
 		echo "✗ manifest applet missing from --list: $applet" >&2
 		missing=1
 	fi

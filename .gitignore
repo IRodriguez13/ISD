@@ -14,4 +14,7 @@ packages/*/sysdeps*.log
 *.o
 tests/host/userspace_tests
 packages/*/prefix/
+packages/*/deps/
 rootfs/local/
+__pycache__/
+*.pyc

@@ -34,6 +34,7 @@ fgrep
 find
 fold
 free
+getopt
 grep
 groups
 gunzip
@@ -65,6 +66,7 @@ nc
 netstat
 nice
 nl
+nohup
 nproc
 nslookup
 od
@@ -90,6 +92,7 @@ seq
 sh
 sha1sum
 sha256sum
+shuf
 sleep
 sort
 split
@@ -104,10 +107,12 @@ tar
 tee
 test
 time
+timeout
 top
 touch
 tr
 true
+truncate
 tty
 umount
 uname
@@ -125,3 +130,4 @@ whoami
 xargs
 xxd
 yes
+zcat

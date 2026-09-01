@@ -49,7 +49,11 @@ if [ -f "$CFG" ]; then
 		CONFIG_PKG_*=y|CONFIG_PKG_*=Y)
 			key="${line%%=*}"
 			name="${key#CONFIG_PKG_}"
-			pkg="$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+			# Non-lowercase dirs (must match isdconfig.FUTURE_PACKAGES).
+			case "$name" in
+			PACK_EXTRACT) pkg="pack-extract" ;;
+			*) pkg="$(echo "$name" | tr '[:upper:]' '[:lower:]')" ;;
+			esac
 			if [ ! -f "${ROOT}/packages/${pkg}/build.sh" ]; then
 				echo "⚠ resolve-packages: skip CONFIG_PKG_${name}=y (packages/${pkg}/ missing)" >&2
 				continue
