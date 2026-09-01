@@ -302,7 +302,6 @@ softlimit
 sort
 split
 ssl_client
-start-stop-daemon
 stat
 strings
 stty

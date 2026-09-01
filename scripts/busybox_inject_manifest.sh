@@ -47,6 +47,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 	case " $FORCE_REBOOT_APPLETS " in
 	*" $applet "*) continue ;;
 	esac
+	# MINIX v1 directory entries are 14-byte names (inject truncates).
+	# Skip overlong applet names — they cannot be invoked by full argv0 on disk.
+	if [[ "${#applet}" -gt 14 ]]; then
+		echo "  SKIP    applet '$applet' (name >14 chars; MINIX v1 limit)" >&2
+		continue
+	fi
 	$INJECT --hardlink "$DISK" bin/busybox "bin/$applet"
 	paths+=("/bin/$applet")
 done < "$MANIFEST"

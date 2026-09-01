@@ -153,6 +153,11 @@ link_applet() {
 	local ap="$1"
 	[ -n "$ap" ] || return 0
 	[ "$ap" = "busybox" ] && return 0
+	# MINIX v1 names are 14 bytes; skip overlong applets (cannot argv0 on disk).
+	if [ "${#ap}" -gt 14 ]; then
+		echo "  SKIP    applet '$ap' (name >14 chars; MINIX v1 limit)" >&2
+		return 0
+	fi
 	case $'\n'"${BB_APPLETS}"$'\n' in
 	*$'\n'"${ap}"$'\n'*) ;;
 	*)
