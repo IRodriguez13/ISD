@@ -54,6 +54,13 @@ for d in var/lib/ir0 var/log tmp dev proc sys heart run run/doas mnt; do
 	touch "${TREE}/${d}/.keep"
 	$INJECT "$DISK" --mode 0644 "${TREE}/${d}/.keep" "${d}/.keep"
 done
+# mkdir() in inject defaults dirs to 0755; sticky /tmp must stay 1777 (Linux).
+$INJECT --owner 0:0 --mode 1777 --chown "$DISK" tmp
+# Match stage-rootfs.sh for /run and /root if present as dirs on the image.
+$INJECT --owner 0:0 --mode 0755 --chown "$DISK" run
+if $INJECT --owner 0:0 --mode 0700 --chown "$DISK" root 2>/dev/null; then
+	:
+fi
 
 inject_file "${TREE}/sbin/init" sbin/init
 inject_file "${TREE}/sbin/runit" sbin/runit
