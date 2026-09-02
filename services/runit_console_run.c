@@ -548,17 +548,33 @@ int main(void)
 
 	for (;;)
 	{
+		int line_rc;
+
 		/* Drop keys typed during the prior delay / password silence. */
 		(void)ir0_tty_restore_cooked();
 		(void)ir0_tty_flush_input();
 		print_issue();
 		puts_fd(prompt);
 		(void)ir0_tty_flush_input();
-		(void)ir0_read_line(user, sizeof(user), 1);
+		line_rc = ir0_read_line(user, sizeof(user), 1);
 		strip_ws(user);
-		ir0_smoke_tag("LOGIN_USER_READ\n");
-		if (user[0] == '\0')
+		/*
+		 * Do not emit LOGIN_USER_READ on empty/EOF/EINTR spin: that tag
+		 * was flooding the serial log next to the prompt after firstboot
+		 * while read() returned without a real username.
+		 */
+		if (line_rc != 0)
+		{
+			sleep(1);
 			continue;
+		}
+		if (user[0] == '\0')
+		{
+			/* Empty Enter / whitespace — do not spin the banner. */
+			sleep(1);
+			continue;
+		}
+		ir0_smoke_tag("LOGIN_USER_READ\n");
 		puts_fd("Password: ");
 		(void)ir0_read_line(pass, sizeof(pass), 0);
 		ir0_smoke_tag("LOGIN_PASS_READ\n");

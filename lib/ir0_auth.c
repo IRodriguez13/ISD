@@ -591,17 +591,32 @@ int ir0_read_line(char *buf, size_t buflen, int echo)
 	/*
 	 * One canonical read() for the whole line (not read(1) loops).
 	 * Password: silence echo via kernel-sized TCSETS (see ir0_tty_set_echo).
+	 * Retry EINTR (SIGCHLD from runsv/logger must not abort the prompt).
+	 * r==0 is EOF, not an empty username line.
 	 */
 	if (!echo)
 		restore = ir0_tty_set_echo(0) == 0;
 
-	r = read(0, buf, buflen - 1);
-	if (r < 0)
+	for (;;)
 	{
-		buf[0] = '\0';
-		if (restore)
-			(void)ir0_tty_set_echo(1);
-		return -1;
+		r = read(0, buf, buflen - 1);
+		if (r < 0)
+		{
+			if (errno == EINTR)
+				continue;
+			buf[0] = '\0';
+			if (restore)
+				(void)ir0_tty_set_echo(1);
+			return -1;
+		}
+		if (r == 0)
+		{
+			buf[0] = '\0';
+			if (restore)
+				(void)ir0_tty_set_echo(1);
+			return -1;
+		}
+		break;
 	}
 
 	n = (size_t)r;

@@ -151,7 +151,10 @@ $(addprefix build-,$(RESOLVED_PACKAGES)): build-%: $(STAMP_PACKAGES)/%
 # --- services: toolchain + UAPI ----------------------------------------------
 
 $(STAMP_SERVICES): $(STAMP_TOOLCHAIN) $(STAMP_UAPI) scripts/build-services.sh \
-		scripts/stamp-run.sh
+		scripts/stamp-run.sh \
+		$(wildcard $(CURDIR)/services/*.c) \
+		$(wildcard $(CURDIR)/lib/*.c) \
+		$(wildcard $(CURDIR)/natives/*.c)
 	@chmod +x scripts/build-services.sh scripts/stamp-run.sh
 	@mkdir -p "$(dir $@)" "$(PRODUCT_OUT)" "$(SMOKE_OUT)"
 	@scripts/stamp-run.sh $@ -- env ARCH=$(ARCH) CC="$(CC)" MUSL_CC="$(CC)" \
