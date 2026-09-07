@@ -6,17 +6,29 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 export TERM="${TERM:-linux}"
 USER="${USER:-root}"
 HOSTNAME="${HOSTNAME:-ir0}"
+
+# Keep prompts compact without relying on bash-only \w expansion.
+ir0_prompt_path()
+{
+	case "$PWD" in
+	"$HOME") printf '~' ;;
+	"$HOME"/*) printf '~/%s' "${PWD#"$HOME"/}" ;;
+	*) printf '%s' "$PWD" ;;
+	esac
+}
+
 case "$USER" in
 root)
-	# $PWD stays unexpanded: ash re-expands PS1 on every prompt
-	# (CONFIG_ASH_EXPAND_PRMT).
-	PS1="root@$HOSTNAME"':$PWD# '
+	PS1="root@$HOSTNAME"':$(ir0_prompt_path)# '
 	;;
 *)
-	PS1="$USER@$HOSTNAME"':$PWD$ '
+	PS1="$USER@$HOSTNAME"':$(ir0_prompt_path)$ '
 	;;
 esac
 export PS1 HOSTNAME USER
+
+alias ll='ls -l'
+alias llh='ls -lah'
 
 # Dennis Ritchie nod: host IR0 tree via virtio-9p (make run: mount_tag=dennis).
 # Offline disk keeps short-name samples under the same path until mounted.
