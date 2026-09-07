@@ -9,7 +9,7 @@
 | Layer | File | Role |
 |-------|------|------|
 | Profile mandatory set | `profiles/<profile>/packages.txt` | Packages always built/installed for that profile |
-| Extras | `.isdconfig` (`CONFIG_PKG_*`, `CONFIG_APPLET_*`) | Optional packages + BusyBox applet links; `make isdconfig` (interactive) / `isd-defconfig` |
+| Extras | `.isdconfig.d/<profile>` (`CONFIG_PKG_*`, `CONFIG_APPLET_*`) | Profile-local optional packages and BusyBox applet links |
 | Core | busybox + runit | Always on; cannot disable |
 | Policy only | `profiles/<profile>/profile.conf` | Login/root/fsck/network — **not** package truth |
 
@@ -18,13 +18,13 @@ Resolver (`scripts/resolve-packages.sh`):
 ```text
 core (busybox runit)
   ∪ profiles/$PROFILE/packages.txt
-  ∪ .isdconfig CONFIG_PKG_*=y
+  ∪ .isdconfig.d/$PROFILE CONFIG_PKG_*=y
   + auto-dep nano → ncurses
 ```
 
-Applets: profile `applets.txt` plus `.isdconfig` `CONFIG_APPLET_*=y` (e.g. `CONFIG_APPLET_TOP=y` → `/bin/top`). BusyBox must include the applet (`CONFIG_TOP=y` in `packages/busybox/ir0_full.config`).
+Applets: profile `applets.txt` plus `.isdconfig.d/<profile>` `CONFIG_APPLET_*=y`.
 
-`profiles/*/packages.txt` is lean (busybox+runit). Common extras default to **y** in `isd-defconfig` (nano, ncurses, opendoas, top).
+Mandatory software belongs in `profiles/*/packages.txt`; optional extras default off and are isolated per profile. Development mandates TinyCC and GNU make.
 
 ## Stamp layout
 

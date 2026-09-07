@@ -28,7 +28,7 @@ endif
 include mk/paths.mk
 include mk/toolchain.mk
 
-# Resolved set: core ∪ profile packages.txt ∪ .isdconfig (+ nano→ncurses).
+# Resolved set: core ∪ profile packages.txt ∪ profile-local config.
 RESOLVED_PACKAGES := $(shell PROFILE=$(PROFILE) bash $(CURDIR)/scripts/resolve-packages.sh 2>/dev/null)
 ifeq ($(strip $(RESOLVED_PACKAGES)),)
   RESOLVED_PACKAGES := busybox runit
@@ -45,7 +45,7 @@ ROOTFS_INPUTS := \
 	profiles/$(PROFILE)/packages.txt \
 	profiles/$(PROFILE)/services.txt \
 	profiles/$(PROFILE)/applets.txt \
-	$(wildcard .isdconfig) \
+	$(wildcard .isdconfig.d/$(PROFILE)) \
 	$(shell find $(ROOTFS_FIND_DIRS) -type f 2>/dev/null)
 
 .PHONY: all fetch headers build build-packages build-services build-tests \

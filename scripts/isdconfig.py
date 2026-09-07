@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CFG = ROOT / ".isdconfig"
+DEFAULT_CFG_DIR = ROOT / ".isdconfig.d"
 
 # Always-on core (cannot be disabled).
 FORBIDDEN_DISABLE = ("BUSYBOX", "RUNIT")
@@ -50,12 +50,12 @@ AUTO_DEPS = {
 
 CORE_DEFAULTS = {k: "y" for k in FORBIDDEN_DISABLE}
 
-# Sensible test-distro defaults: common extras on; futures off.
-# TINYCC/GNUMAKE stay optional here — desktop mandates them via packages.txt.
+# Profile-local extras default off. Product profiles declare mandatory software
+# in profiles/<profile>/packages.txt, so creating a config never pollutes minimal.
 EXTRA_DEFAULTS = {
-    "NANO": "y",
-    "NCURSES": "y",
-    "OPENDOAS": "y",
+    "NANO": "n",
+    "NCURSES": "n",
+    "OPENDOAS": "n",
     "TINYCC": "n",
     "GNUMAKE": "n",
     "DOOM": "n",
@@ -65,13 +65,13 @@ EXTRA_DEFAULTS = {
 APPLET_DEFAULTS = {k: "y" for k in APPLETS}
 
 
-def cfg_path(explicit: str | None = None) -> Path:
+def cfg_path(explicit: str | None = None, profile: str = "minimal") -> Path:
     if explicit:
         return Path(explicit)
     env = os.environ.get("ISD_CONFIG")
     if env:
         return Path(env)
-    return DEFAULT_CFG
+    return DEFAULT_CFG_DIR / profile
 
 
 def parse_cfg(path: Path) -> dict[str, str]:
@@ -511,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--config",
         default=None,
-        help="path to .isdconfig (default: $ISD_CONFIG or repo root)",
+        help="config path (default: $ISD_CONFIG or .isdconfig.d/<profile>)",
     )
     ap.add_argument(
         "--profile",
@@ -532,7 +532,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("menu", help="interactive extras menu (TTY)")
 
     args = ap.parse_args(argv)
-    path = cfg_path(args.config)
+    path = cfg_path(args.config, args.profile)
 
     if args.cmd == "defconfig":
         return cmd_defconfig(path, args.force)

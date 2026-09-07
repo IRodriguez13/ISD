@@ -52,7 +52,7 @@ got2=$(PROFILE=appliance ISD_CONFIG="$CFG2" bash scripts/resolve-packages.sh)
 echo " $got2 " | grep -q ' nano ' && echo " $got2 " | grep -q ' ncurses ' \
 	&& ok "B resolve nano+ncurses" || bad "B resolve missing nano/ncurses: $got2"
 
-# packages.txt is lean (core only); extras come from .isdconfig — use empty config.
+# Minimal stays core-only; development owns its toolchain contract.
 CFG_EMPTY="$TMP/isdconfig-empty"
 : >"$CFG_EMPTY"
 min=$(PROFILE=minimal ISD_CONFIG="$CFG_EMPTY" bash scripts/resolve-packages.sh)
@@ -69,11 +69,17 @@ echo " $desk " | grep -q ' tinycc ' && echo " $desk " | grep -q ' gnumake ' \
 	&& ok "B desktop packages.txt mandates tinycc+gnumake+doom+editor" \
 	|| bad "B desktop resolve: $desk"
 
+dev=$(PROFILE=development ISD_CONFIG="$CFG_EMPTY" bash scripts/resolve-packages.sh)
+echo " $dev " | grep -q ' tinycc ' && echo " $dev " | grep -q ' gnumake ' \
+	&& ok "B development mandates tinycc+gnumake" \
+	|| bad "B development resolve: $dev"
+
 CFG3="$TMP/isdconfig-b3"
 PROFILE=minimal ISD_CONFIG="$CFG3" python3 scripts/isdconfig.py --config "$CFG3" defconfig --force
 got3=$(PROFILE=minimal ISD_CONFIG="$CFG3" bash scripts/resolve-packages.sh)
-echo " $got3 " | grep -q ' opendoas ' && echo " $got3 " | grep -q ' nano ' \
-	&& ok "B defconfig seeds OPENDOAS+NANO" || bad "B defconfig resolve: $got3"
+! echo " $got3 " | grep -q ' opendoas ' && ! echo " $got3 " | grep -q ' nano ' \
+	&& ! echo " $got3 " | grep -q ' tinycc ' \
+	&& ok "B minimal defconfig stays clean" || bad "B minimal defconfig resolve: $got3"
 grep -q 'CONFIG_APPLET_TOP=y' "$CFG3" && ok "B defconfig seeds APPLET_TOP" \
 	|| bad "B no APPLET_TOP in defconfig"
 
@@ -81,6 +87,17 @@ PROFILE=minimal ISD_CONFIG="$CFG3" python3 scripts/isdconfig.py --config "$CFG3"
 	set CONFIG_APPLET_TOP=n
 grep -q 'CONFIG_APPLET_TOP=n' "$CFG3" && ok "B set CONFIG_APPLET_TOP=n" \
 	|| bad "B applet set failed"
+
+CFG_ISO="$TMP/config-root"
+mkdir -p "$CFG_ISO/.isdconfig.d"
+PROFILE=minimal python3 scripts/isdconfig.py --config "$CFG_ISO/.isdconfig.d/minimal" \
+	defconfig --force
+PROFILE=development python3 scripts/isdconfig.py --config "$CFG_ISO/.isdconfig.d/development" \
+	defconfig --force
+python3 scripts/isdconfig.py --config "$CFG_ISO/.isdconfig.d/development" \
+	set CONFIG_PKG_NANO=y
+! grep -q 'CONFIG_PKG_NANO=y' "$CFG_ISO/.isdconfig.d/minimal" \
+	&& ok "B profile configs are isolated" || bad "B profile config contamination"
 
 # --- C: overlay independence (.keep trees present; Makefile find deps) -------
 echo "-- C overlays --"

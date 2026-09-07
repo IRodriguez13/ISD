@@ -169,8 +169,8 @@ while read -r ap; do
 	link_applet "$ap" || exit 1
 done <<< "$BB_APPLETS"
 
-# Optional applets from .isdconfig (CONFIG_APPLET_*=y)
-ISD_CFG="${ISD_CONFIG:-${ROOT}/.isdconfig}"
+# Optional applets from the profile-local configuration.
+ISD_CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
 if [ -f "$ISD_CFG" ]; then
 	while IFS= read -r line || [ -n "${line:-}" ]; do
 		[[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
@@ -288,6 +288,9 @@ development)
 	printf 'root\n' > "${DEST}/etc/ir0-autologin"
 	mkdir -p "${DEST}/home/labuser"
 	chmod 0700 "${DEST}/home/labuser"
+	mkdir -p "${DEST}/root/Developer" "${DEST}/home/labuser/Developer"
+	cp -a "${ROOT}/profiles/development/examples/." "${DEST}/root/Developer/"
+	cp -a "${ROOT}/profiles/development/examples/." "${DEST}/home/labuser/Developer/"
 	;;
 esac
 

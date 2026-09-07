@@ -2,6 +2,7 @@
 /out/
 /sysroot/
 .isdconfig
+.isdconfig.d/
 packages/*/src/
 packages/*/dist/
 packages/*/build-*/

@@ -1,2 +1,4 @@
 busybox
 runit
+tinycc
+gnumake

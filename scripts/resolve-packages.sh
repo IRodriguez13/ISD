@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 # Resolve the package set for PROFILE:
-#   core (busybox runit) ∪ profiles/PROFILE/packages.txt ∪ .isdconfig CONFIG_PKG_*=y
+#   core ∪ profile packages ∪ profile-local .isdconfig extras
 # Auto-dep: nano → ncurses. Validate packages/<name> exists.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE="${PROFILE:-minimal}"
-CFG="${ISD_CONFIG:-${ROOT}/.isdconfig}"
+CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
 PROF_PKGS="${ROOT}/profiles/${PROFILE}/packages.txt"
 
 declare -A WANT=()
