@@ -219,13 +219,22 @@ fi
 if [ -d "${TREE}/root" ]; then
 	touch "${TREE}/root/.keep"
 	$INJECT "$DISK" "${TREE}/root/.keep" root/.keep
+	inject_tree_files root/Developer
 	$INJECT --owner 0:0 --mode 0700 --chown "$DISK" root 2>/dev/null || true
 fi
 if [ -d "${TREE}/home/labuser" ]; then
 	touch "${TREE}/home/labuser/.keep"
 	$INJECT "$DISK" --mode 0644 --owner 1000:100 \
 		"${TREE}/home/labuser/.keep" home/labuser/.keep
+	inject_tree_files home/labuser/Developer
 	$INJECT --owner 1000:100 --mode 0700 --chown "$DISK" home/labuser
+fi
+
+if [ -f "${TREE}/root/Developer/shebang/direct.sh" ]; then
+	VERIFY_EXTRA+=(/root/Developer/shebang/direct.sh)
+fi
+if [ -f "${TREE}/root/Developer/shebang/busybox-ash.sh" ]; then
+	VERIFY_EXTRA+=(/root/Developer/shebang/busybox-ash.sh)
 fi
 
 python3 "${IR0_ROOT}/scripts/verify_minix_rootfs.py" --gate "$DISK" \

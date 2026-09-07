@@ -185,6 +185,12 @@ fi
 [ -x scripts/find-doom-iwad.sh ] || [ -f scripts/find-doom-iwad.sh ] \
 	&& ok "D find-doom-iwad.sh present" || bad "D missing find-doom-iwad.sh"
 [ -f packages/gnumake/build.sh ] && ok "D packages/gnumake present" || bad "D no gnumake recipe"
+[ -x profiles/development/examples/shebang/direct.sh ] \
+	&& ok "D development direct shebang example executable" \
+	|| bad "D development direct shebang example missing or not executable"
+[ -x profiles/development/examples/shebang/busybox-ash.sh ] \
+	&& ok "D development BusyBox shebang example executable" \
+	|| bad "D development BusyBox shebang example missing or not executable"
 [ -f packages/doom/build.sh ] && ok "D packages/doom present" || bad "D no doom recipe"
 [ -f lib/ir0_keymap.c ] && [ -f services/ir0_keymap.c ] \
 	&& ok "D keymap lib+CLI present" || bad "D missing keymap sources"
