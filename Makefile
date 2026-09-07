@@ -117,8 +117,8 @@ headers: $(STAMP_UAPI)
 
 fetch:
 	@chmod +x scripts/fetch-package.sh scripts/resolve-packages.sh
-	@pkgs="$$(PROFILE=$(PROFILE) scripts/resolve-packages.sh)"; \
-	for p in $$pkgs; do scripts/fetch-package.sh $$p; done
+	@set -e; pkgs="$$(PROFILE=$(PROFILE) scripts/resolve-packages.sh)"; \
+	for p in $$pkgs; do scripts/fetch-package.sh "$$p"; done
 
 # --- packages: depend on toolchain ONLY (not UAPI) ---------------------------
 
