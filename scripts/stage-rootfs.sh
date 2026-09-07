@@ -135,12 +135,9 @@ install -m 04755 "$BUSYBOX_AUTH" "${DEST}/usr/bin/busybox-auth"
 ln -f "${DEST}/usr/bin/busybox-auth" "${DEST}/bin/login"
 ln -f "${DEST}/usr/bin/busybox-auth" "${DEST}/bin/su"
 
-# BusyBox applet links from profile applets list
-MANIFEST="${PROF_DIR}/applets.txt"
-if [ ! -f "$MANIFEST" ]; then
-	MANIFEST="${ROOT}/packages/busybox/required_applets.txt"
-fi
-# Snapshot the applet list once instead of per applet.
+# BusyBox exposes one invariant command surface in every product profile.
+# Profiles select packages/services/policy, never BusyBox applets. Snapshot the
+# binary's authoritative list once instead of maintaining divergent manifests.
 #
 # `busybox --list | grep -qx "$ap"` is unsafe under `set -o pipefail`: grep -q
 # exits on the first match, busybox then dies of SIGPIPE (141) and the pipeline
@@ -168,9 +165,9 @@ link_applet() {
 	ln -f "${DEST}/bin/busybox" "${DEST}/bin/${ap}"
 }
 while read -r ap; do
-	[[ "$ap" =~ ^#.*$ || -z "$ap" ]] && continue
+	[ -n "$ap" ] || continue
 	link_applet "$ap" || exit 1
-done < "$MANIFEST"
+done <<< "$BB_APPLETS"
 
 # Optional applets from .isdconfig (CONFIG_APPLET_*=y)
 ISD_CFG="${ISD_CONFIG:-${ROOT}/.isdconfig}"

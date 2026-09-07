@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 #
-# Inject BusyBox multicall once as /bin/busybox, then hardlink each
-# required_applets.txt name to the same inode (BUSY-1).
+# Inject the BusyBox multicall binary and its applets. MINIX v1 stores the link
+# count in one byte, so a complete BusyBox cannot share one inode: shard links
+# across identical hidden copies before reaching the on-disk limit.
 
 set -euo pipefail
 
@@ -34,6 +35,10 @@ echo "  BUSYBOX /bin/busybox + applet hardlinks"
 $INJECT "$DISK" "$BUSYBOX_BIN" bin/busybox
 
 paths=("/bin/busybox")
+link_source="bin/busybox"
+link_count=0
+shard=1
+links_per_inode=200
 # These applets get shell wrappers (not hardlinks): bare BusyBox halt/poweroff/
 # reboot without -f only kill(1, SIG*) and expect SysV init — runit has none.
 FORCE_REBOOT_APPLETS="halt poweroff reboot"
@@ -53,7 +58,15 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 		echo "  SKIP    applet '$applet' (name >14 chars; MINIX v1 limit)" >&2
 		continue
 	fi
-	$INJECT --hardlink "$DISK" bin/busybox "bin/$applet"
+	if (( link_count >= links_per_inode )); then
+		shard=$((shard + 1))
+		link_source="bin/.busybox${shard}"
+		$INJECT "$DISK" "$BUSYBOX_BIN" "$link_source"
+		paths+=("/$link_source")
+		link_count=0
+	fi
+	$INJECT --hardlink "$DISK" "$link_source" "bin/$applet"
+	link_count=$((link_count + 1))
 	paths+=("/bin/$applet")
 done < "$MANIFEST"
 

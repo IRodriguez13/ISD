@@ -153,8 +153,10 @@ if [ -f "${TREE}/etc/doas.conf" ]; then
 fi
 
 BUSYBOX="${TREE}/bin/busybox"
-MANIFEST="${ROOT}/profiles/${PROFILE}/applets.txt"
-[ -f "$MANIFEST" ] || MANIFEST="${ROOT}/packages/busybox/required_applets.txt"
+PACK_TMP="$(mktemp -d "${TMPDIR:-/tmp}/isd-pack-minix.XXXXXX")"
+trap 'rm -rf "$PACK_TMP"' EXIT
+MANIFEST="${PACK_TMP}/busybox-full.applets"
+"$BUSYBOX" --list > "$MANIFEST"
 chmod +x "${ROOT}/scripts/busybox_inject_manifest.sh"
 IR0_ROOT="$IR0_ROOT" FASE50_BUSYBOX_BIN="$BUSYBOX" \
 	"${ROOT}/scripts/busybox_inject_manifest.sh" "$DISK" "$BUSYBOX" "$MANIFEST"

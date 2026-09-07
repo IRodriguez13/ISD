@@ -97,6 +97,24 @@ grep -q '\[ "\$ap" = "busybox" \] && return 0' scripts/stage-rootfs.sh \
 	&& ok "C skip busybox self-link" || bad "C no busybox skip"
 grep -q 'CONFIG_APPLET_' scripts/stage-rootfs.sh \
 	&& ok "C stage links CONFIG_APPLET_*" || bad "C no applet config links"
+shell_profile_ok=1
+for shell_profile in rootfs/base/etc/profile rootfs/etc/profile; do
+	grep -q "alias ll='ls -l'" "$shell_profile" \
+		&& grep -q "alias llh='ls -lah'" "$shell_profile" \
+		&& grep -q 'ir0_prompt_path' "$shell_profile" \
+		|| shell_profile_ok=0
+done
+[ "$shell_profile_ok" = 1 ] \
+	&& ok "C common ash aliases and home-aware prompt stay synchronized" \
+	|| bad "C shell profile aliases/prompt drift"
+grep -q 'done <<< "$BB_APPLETS"' scripts/stage-rootfs.sh \
+	&& ! grep -q 'MANIFEST="${PROF_DIR}/applets.txt"' scripts/stage-rootfs.sh \
+	&& ok "C every profile links the complete busybox-full applet set" \
+	|| bad "C profile-specific BusyBox applet surface"
+grep -q '"$BUSYBOX" --list > "$MANIFEST"' scripts/pack-minix.sh \
+	&& grep -q 'links_per_inode=200' scripts/busybox_inject_manifest.sh \
+	&& ok "C MINIX packs full applet set with bounded inode link shards" \
+	|| bad "C MINIX BusyBox manifest/link-count safety missing"
 grep -q 'format-large' scripts/pack-minix.sh \
 	&& ok "C pack-minix format-large clean image" || bad "C pack-minix no format-large"
 grep -q 'firstboot.done' scripts/pack-minix.sh \
