@@ -62,6 +62,7 @@ mkdir -p \
 	"${DEST}/bin" "${DEST}/sbin" "${DEST}/usr/bin" "${DEST}/usr/sbin" \
 	"${DEST}/etc" "${DEST}/dev" "${DEST}/proc" "${DEST}/sys" "${DEST}/heart" \
 	"${DEST}/run" "${DEST}/run/doas" "${DEST}/tmp" "${DEST}/var/log" "${DEST}/var/lib/ir0" \
+	"${DEST}/var/run" \
 	"${DEST}/home" "${DEST}/root" "${DEST}/mnt" \
 	"${DEST}/usr/ken" "${DEST}/usr/ken/games" "${DEST}/usr/share/doom" \
 	"${DEST}/usr/share/man" "${DEST}/usr/share/man/cat7" \

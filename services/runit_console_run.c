@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <sys/time.h>
+#include <utmpx.h>
 #include <unistd.h>
 
 #include "ir0_auth.h"
@@ -45,6 +47,32 @@
 
 /* Desktop profile marker: direct root login is refused before any password. */
 #define ROOT_LOGIN_DENY_FILE "/etc/ir0-noroot"
+#define IR0_UTMP_FILE "/var/run/utmp"
+
+static void session_account(pid_t pid, const struct ir0_account *acct, int active)
+{
+	struct utmpx record;
+	struct timeval now;
+	int fd;
+
+	memset(&record, 0, sizeof(record));
+	record.ut_type = active ? USER_PROCESS : DEAD_PROCESS;
+	record.ut_pid = pid;
+	strncpy(record.ut_line, "console", sizeof(record.ut_line) - 1);
+	strncpy(record.ut_id, "cons", sizeof(record.ut_id));
+	if (active && acct)
+		strncpy(record.ut_user, acct->name, sizeof(record.ut_user) - 1);
+	if (gettimeofday(&now, NULL) == 0)
+		record.ut_tv = now;
+
+	fd = open(IR0_UTMP_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (fd < 0)
+		return;
+	if (active)
+		(void)write(fd, &record, sizeof(record));
+	(void)fsync(fd);
+	(void)close(fd);
+}
 
 static void puts_fd(const char *s)
 {
@@ -317,9 +345,11 @@ static int start_session(const struct ir0_account *acct)
 	}
 	if (pid == 0)
 		session_child(acct);
+	session_account(pid, acct, 1);
 
 	if (waitpid(pid, &status, 0) < 0)
 	{
+		session_account(pid, acct, 0);
 		ir0_smoke_tag("CONSOLE_SESSION_WAIT_FAIL\n");
 		(void)ir0_tty_restore_cooked();
 		(void)ir0_tty_flush_input();
@@ -327,6 +357,7 @@ static int start_session(const struct ir0_account *acct)
 		ir0_smoke_tag("CONSOLE_SESSION_RESUME\n");
 		return 0;
 	}
+	session_account(pid, acct, 0);
 
 	if (WIFSIGNALED(status) && WTERMSIG(status) == SIGSEGV)
 	{

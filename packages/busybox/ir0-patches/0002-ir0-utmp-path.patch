@@ -1,0 +1,18 @@
+--- a/procps/uptime.c
++++ b/procps/uptime.c
+@@ -102,6 +102,10 @@ int uptime_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
+-		struct utmpx *ut;
+ 		unsigned users = 0;
+-		while ((ut = getutxent()) != NULL) {
+-			if ((ut->ut_type == USER_PROCESS) && (ut->ut_user[0] != '\0'))
+-				users++;
+-		}
++		FILE *utmp = fopen("/var/run/utmp", "r");
++		if (utmp) {
++			struct utmpx record;
++			while (fread(&record, sizeof(record), 1, utmp) == 1) {
++				if (record.ut_type == USER_PROCESS && record.ut_user[0] != '\0')
++					users++;
++			}
++			fclose(utmp);
++		}
