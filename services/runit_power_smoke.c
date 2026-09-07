@@ -7,32 +7,40 @@
  * See the LICENSE file in the project root for full license information.
  *
  * File: runit_power_smoke.c
- * Description: One-shot runit service — call reboot(2) HALT to exercise kernel power path.
+ * Description: One-shot runit service — request HALT through semantic sysfs control.
  */
 
 /* SPDX-License-Identifier: GPL-3.0-only */
 
+#include <fcntl.h>
+#include <errno.h>
 #include <unistd.h>
 #include "ir0_smoke_tag.h"
-#include <sys/syscall.h>
-#include <sys/reboot.h>
-
-#ifndef LINUX_REBOOT_MAGIC1
-#define LINUX_REBOOT_MAGIC1 0xfee1dead
-#endif
-#ifndef LINUX_REBOOT_MAGIC2
-#define LINUX_REBOOT_MAGIC2 672274793
-#endif
-#ifndef LINUX_REBOOT_CMD_HALT
-#define LINUX_REBOOT_CMD_HALT 0xCDEF0123u
-#endif
-
 
 int main(void)
 {
+	static const char command[] = "halt\n";
+	int fd;
+
 	ir0_smoke_tag("POWER_SMOKE_CALL\n");
-	(void)syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-		      (unsigned int)LINUX_REBOOT_CMD_HALT, (void *)0);
-	ir0_smoke_tag("POWER_SMOKE_REBOOT_RETURNED\n");
+	fd = open("/sys/kernel/halt", O_WRONLY);
+	if (fd < 0)
+	{
+		ir0_smoke_tag("POWER_SMOKE_SYSFS_OPEN_FAIL\n");
+		return 1;
+	}
+	ir0_smoke_tag("POWER_SMOKE_SYSFS_CALL\n");
+	errno = 0;
+	if (write(fd, "x", 1) != -1 || errno != EINVAL)
+	{
+		ir0_smoke_tag("POWER_SMOKE_SYSFS_INVALID_FAIL\n");
+		close(fd);
+		return 1;
+	}
+	ir0_smoke_tag("POWER_SMOKE_SYSFS_INVALID_OK\n");
+	if (write(fd, command, sizeof(command) - 1) < 0)
+		ir0_smoke_tag("POWER_SMOKE_SYSFS_WRITE_FAIL\n");
+	close(fd);
+	ir0_smoke_tag("POWER_SMOKE_HALT_RETURNED\n");
 	return 1;
 }

@@ -78,6 +78,7 @@ build_smoke()
 	cc_one "$SMOKE_STAGE" runit_fase55d_init runit_fase55d_init.c
 	cc_one "$SMOKE_STAGE" runit_power_smoke runit_power_smoke.c
 	cc_one "$SMOKE_STAGE" runit_power_run runit_power_run.c
+	cc_one "$SMOKE_STAGE" runit_sysfs_panic_smoke runit_sysfs_panic_smoke.c
 	cc_one "$SMOKE_STAGE" runit_busybox_halt_smoke runit_busybox_halt_smoke.c
 	cc_one "$SMOKE_STAGE" runit_busybox_poweroff_smoke runit_busybox_poweroff_smoke.c
 	cc_one "$SMOKE_STAGE" runit_busybox_reboot_smoke runit_busybox_reboot_smoke.c
@@ -90,6 +91,7 @@ build_smoke()
 	}
 	exec_run runit_fase52_run /bin/f52-harness RUNSV_FASE52_START
 	exec_run runit_tcc_power_run /bin/tccph RUNSV_TCC_POWER_START
+	exec_run runit_sysfs_panic_run /bin/sysfs-panic RUNSV_SYSFS_PANIC_START
 	exec_run runit_fase55d_run /bin/doom-smoke RUNSV_FASE55D_START
 	exec_run runit_busybox_halt_run /bin/bb-halt RUNSV_BUSYBOX_HALT_START
 	exec_run runit_busybox_poweroff_run /bin/bb-pwroff RUNSV_BUSYBOX_POWEROFF_START
