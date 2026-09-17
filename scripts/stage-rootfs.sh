@@ -12,6 +12,7 @@ source "${ROOT}/scripts/toolchain.sh"
 PRODUCT_OUT="${PRODUCT_OUT:-${ROOT}/out/${ARCH}/product}"
 RUNIT_BIN="${PRODUCT_OUT}/bin"
 STAGE_BIN="${PRODUCT_OUT}/stage-bin"
+STAGE_SCRIPTS="${PRODUCT_OUT}/stage-scripts"
 BUSYBOX="${PRODUCT_OUT}/busybox-full"
 BUSYBOX_AUTH="${PRODUCT_OUT}/busybox-auth"
 PROF_DIR="${ROOT}/profiles/${PROFILE}"
@@ -272,6 +273,63 @@ if manifest_has doom; then
 		install -m 0644 "${DOOM_RT}/doom1.wad" "${DEST}/usr/ken/games/doom1.wad"
 	fi
 fi
+if manifest_has tinyx && [ -x "${STAGE_BIN}/Xfbdev" ]; then
+	mkdir -p "${DEST}/usr/bin"
+	# TinyX performs the Linux VT/KD/framebuffer setup itself and drops back to
+	# the invoking uid after initialization.  Its upstream LinuxInit path
+	# therefore requires the server entry point to be setuid-root.
+	install -m 4755 "${STAGE_BIN}/Xfbdev" "${DEST}/usr/bin/Xfbdev"
+	ln -sf Xfbdev "${DEST}/usr/bin/X"
+fi
+if manifest_has xinit && [ -x "${STAGE_BIN}/xinit" ]; then
+	mkdir -p "${DEST}/usr/bin" "${DEST}/etc/X11/xinit"
+	install -m 0755 "${STAGE_BIN}/xinit" "${DEST}/usr/bin/xinit"
+	install -m 0755 "${STAGE_SCRIPTS}/startx" "${DEST}/usr/bin/startx"
+	cat > "${DEST}/etc/X11/xinit/xinitrc" <<'EOF'
+#!/bin/sh
+# IR0 desktop session assembled exclusively from unmodified X.Org clients.
+/usr/bin/xsetroot -mod 3 3 -fg '#78909c' -bg '#263238'
+/usr/bin/xclock -digital -update 1 -geometry 220x48-18+18 \
+    -bg '#263238' -fg '#eceff1' -bd '#87a9b5' &
+/usr/bin/xeyes -geometry 150x90-22+150 &
+/usr/bin/xlogo -geometry 160x120-24-30 &
+/usr/bin/xterm -geometry 100x30+42+72 -title "IR0 Terminal" &
+exec /usr/bin/twm -f /etc/X11/twm/system.twmrc
+EOF
+	chmod 0755 "${DEST}/etc/X11/xinit/xinitrc"
+fi
+if manifest_has xauth && [ -x "${STAGE_BIN}/xauth" ]; then
+	install -m 0755 "${STAGE_BIN}/xauth" "${DEST}/usr/bin/xauth"
+fi
+for xclient in twm xterm xclock xeyes xlogo xsetroot; do
+	if manifest_has "$xclient" && [ -x "${STAGE_BIN}/${xclient}" ]; then
+		install -m 0755 "${STAGE_BIN}/${xclient}" "${DEST}/usr/bin/${xclient}"
+	fi
+done
+if manifest_has xlogo && [ -d "${ROOT}/packages/xlogo/prefix/${ARCH}/usr/share/X11/app-defaults" ]; then
+	mkdir -p "${DEST}/usr/share/X11/app-defaults"
+	install -m 0644 "${ROOT}/packages/xlogo/prefix/${ARCH}/usr/share/X11/app-defaults/XLogo" \
+		"${DEST}/usr/share/X11/app-defaults/XLogo"
+	install -m 0644 "${ROOT}/packages/xlogo/prefix/${ARCH}/usr/share/X11/app-defaults/XLogo-color" \
+		"${DEST}/usr/share/X11/app-defaults/XLogo-color"
+fi
+if manifest_has font-misc-misc && [ -d "${PRODUCT_OUT}/stage-x11-fonts" ]; then
+	mkdir -p "${DEST}/usr/share/fonts/X11"
+	cp -a "${PRODUCT_OUT}/stage-x11-fonts/." "${DEST}/usr/share/fonts/X11/"
+	font_dir="${DEST}/usr/share/fonts/X11/misc"
+	count=0
+	: > "${font_dir}/fonts.dir"
+	for bdf in "${font_dir}"/*.bdf; do
+		[ -f "$bdf" ] || continue
+		xlfd="$(sed -n 's/^FONT[[:space:]]\+//p' "$bdf" | head -n 1)"
+		[ -n "$xlfd" ] || { echo "✗ font has no XLFD: $bdf" >&2; exit 1; }
+		printf '%s %s\n' "$(basename "$bdf")" "$xlfd" >> "${font_dir}/fonts.dir"
+		count=$((count + 1))
+	done
+	sed -i "1i${count}" "${font_dir}/fonts.dir"
+	fixed_xlfd="$(sed -n 's/^FONT[[:space:]]\+//p' "${font_dir}/6x13.bdf" | head -n 1)"
+	printf 'fixed %s\n' "$fixed_xlfd" > "${font_dir}/fonts.alias"
+fi
 
 # Account policy by profile
 case "$PROFILE" in
@@ -297,6 +355,9 @@ esac
 
 if [ "$PROFILE" = "desktop" ] || [ "${ROOT_POLICY:-}" = "noroot_login" ]; then
 	printf '1\n' > "${DEST}/etc/ir0-noroot"
+fi
+if [ "$PROFILE" = "desktop" ]; then
+	printf 'ext2 /dev/hdb /home\n' > "${DEST}/etc/ir0-home"
 fi
 if [ "$PROFILE" = "appliance" ]; then
 	printf '1\n' > "${DEST}/etc/ir0-noroot"

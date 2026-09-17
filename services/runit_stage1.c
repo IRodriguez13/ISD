@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -94,6 +95,38 @@ static void try_mount_dennis_src(void)
 		ir0_smoke_tag("DENNIS_9P_MOUNT_SKIP\n");
 }
 
+/*
+ * Keep transient Unix lock/socket names off the persistent MINIX v1 root.
+ * Besides being disposable by definition, tmpfs supports modern NAME_MAX;
+ * Xau lock names legitimately exceed MINIX v1's historical 14-byte limit.
+ */
+static void mount_runtime_tmp(void)
+{
+	if (mount("tmpfs", "/tmp", "tmpfs", 0, "mode=1777") == 0)
+	{
+		(void)chmod("/tmp", 01777);
+		ir0_smoke_tag("RUNTIME_TMPFS_OK\n");
+		return;
+	}
+
+	/* The image builder provides a safe persistent fallback. */
+	(void)chmod("/tmp", 01777);
+	ir0_smoke_tag("RUNTIME_TMPFS_FALLBACK\n");
+}
+
+static void mount_persistent_home(void)
+{
+	if (access("/etc/ir0-home", F_OK) != 0)
+		return;
+	(void)mkdir("/home", 0755);
+	if (mount("/dev/hdb", "/home", "ext2", 0, NULL) == 0)
+	{
+		ir0_smoke_tag("EXT2_HOME_MOUNT_OK\n");
+		return;
+	}
+	ir0_smoke_tag("EXT2_HOME_MOUNT_FAIL\n");
+}
+
 int main(void)
 {
 	char *const argv2[] = { "/etc/runit/2", NULL };
@@ -101,6 +134,8 @@ int main(void)
 
 	if (want_fsck())
 		run_helper("/sbin/fsck.ir0");
+	mount_runtime_tmp();
+	mount_persistent_home();
 	run_firstboot_early();
 	try_mount_dennis_src();
 

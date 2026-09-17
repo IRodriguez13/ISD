@@ -1,0 +1,65 @@
+# IR0 desktop defaults. Users may override these settings in ~/.twmrc.
+NoGrabServer
+RestartPreviousState
+DecorateTransients
+RandomPlacement
+ShowIconManager
+IconManagerGeometry "240x5-18+82" 1
+BorderWidth 2
+TitleButtonBorderWidth 1
+FramePadding 3
+ButtonIndent 1
+
+TitleFont "fixed"
+MenuFont "fixed"
+IconFont "fixed"
+IconManagerFont "fixed"
+ResizeFont "fixed"
+
+Color
+{
+    BorderColor "#87a9b5"
+    DefaultBackground "#263238"
+    DefaultForeground "#eceff1"
+    TitleBackground "#355f6b"
+    TitleForeground "white"
+    MenuBackground "#263238"
+    MenuForeground "white"
+    MenuTitleBackground "#4f7b86"
+    MenuTitleForeground "white"
+    IconBackground "#263238"
+    IconForeground "white"
+    IconBorderColor "#87a9b5"
+    IconManagerBackground "#263238"
+    IconManagerForeground "white"
+    IconManagerHighlight "#80cbc4"
+}
+
+Function "move-or-raise"
+{
+    f.move
+    f.deltastop
+    f.raise
+}
+
+menu "IR0"
+{
+    "IR0 Desktop"      f.title
+    "New terminal"     f.exec "/usr/bin/xterm -title 'IR0 Terminal' &"
+    "Mouse monitor"    f.exec "/usr/bin/xeyes -geometry 150x90 &"
+    "About X11"        f.exec "/usr/bin/xlogo -geometry 160x120 &"
+    "Window list"      f.menu "TwmWindows"
+    "Refresh"          f.refresh
+    "Restart manager"  f.restart
+    "Exit desktop"     f.quit
+}
+
+Button1 = : root : f.menu "IR0"
+Button2 = : root : f.menu "TwmWindows"
+Button3 = : root : f.menu "IR0"
+Button1 = : title : f.function "move-or-raise"
+Button1 = : icon : f.function "move-or-raise"
+Button3 = : title : f.resize
+
+LeftTitleButton "menu12" = f.menu "IR0"
+RightTitleButton "resize" = f.resize
