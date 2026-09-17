@@ -31,7 +31,7 @@ LIBS="-lfreetype -lfontenc -lXau -lXdmcp -lm" \
   --disable-xres --disable-screensaver --disable-dbe --disable-xf86bigfont \
   --disable-dpms \
   --with-int10=stub \
-  --with-default-font-path=/usr/share/fonts/X11/misc
+  --with-default-font-path=/usr/share/fonts/X11/misc,/usr/share/fonts/X11/75dpi
 make -s -j"$(nproc)" \
   LDFLAGS="-all-static -no-pie $ld" \
   LIBS="-lfreetype -lfontenc -lz -lXau -lXdmcp -lm"
