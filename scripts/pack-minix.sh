@@ -54,6 +54,9 @@ for d in var/lib/ir0 var/log tmp dev proc sys heart run run/doas mnt; do
 	touch "${TREE}/${d}/.keep"
 	$INJECT "$DISK" --mode 0644 "${TREE}/${d}/.keep" "${d}/.keep"
 done
+# Applications such as X create per-user lock files here.  Parent directories
+# synthesized by the injector otherwise keep its default root-only mode.
+$INJECT --owner 0:0 --mode 01777 --chown "$DISK" tmp
 
 inject_file "${TREE}/sbin/init" sbin/init
 inject_file "${TREE}/sbin/runit" sbin/runit
@@ -90,6 +93,35 @@ fi
 if [ -f "${TREE}/usr/bin/nano" ]; then
 	inject_file "${TREE}/usr/bin/nano" usr/bin/nano
 fi
+# X11 product payload.  The MINIX image builder is intentionally explicit,
+# so desktop binaries staged in the rootfs must also be admitted here.
+if [ -f "${TREE}/usr/bin/Xfbdev" ]; then
+	inject_file "${TREE}/usr/bin/Xfbdev" usr/bin/Xfbdev
+	$INJECT --hardlink "$DISK" usr/bin/Xfbdev usr/bin/X
+fi
+if [ -f "${TREE}/usr/bin/xinit" ]; then
+	inject_file "${TREE}/usr/bin/xinit" usr/bin/xinit
+fi
+if [ -f "${TREE}/usr/bin/startx" ]; then
+	inject_file "${TREE}/usr/bin/startx" usr/bin/startx
+fi
+if [ -f "${TREE}/usr/bin/xauth" ]; then
+	inject_file "${TREE}/usr/bin/xauth" usr/bin/xauth
+fi
+if [ -f "${TREE}/etc/X11/xinit/xinitrc" ]; then
+	inject_file "${TREE}/etc/X11/xinit/xinitrc" etc/X11/xinit/xinitrc
+fi
+for xclient in twm xterm xclock xeyes xlogo xsetroot; do
+	if [ -f "${TREE}/usr/bin/${xclient}" ]; then
+		inject_file "${TREE}/usr/bin/${xclient}" "usr/bin/${xclient}"
+	fi
+done
+for app_default in XLogo XLogo-color; do
+	if [ -f "${TREE}/usr/share/X11/app-defaults/${app_default}" ]; then
+		inject_file "${TREE}/usr/share/X11/app-defaults/${app_default}" \
+			"usr/share/X11/app-defaults/${app_default}"
+	fi
+done
 # iv (line-oriented editor) + pack/unpack (libarchive wrappers).
 if [ -f "${TREE}/usr/bin/iv" ]; then
 	inject_file "${TREE}/usr/bin/iv" usr/bin/iv
@@ -131,6 +163,8 @@ inject_tree_files() {
 inject_tree_files lib/tcc
 # Ash tab-completion snippets (rootfs/base → TREE via stage-rootfs).
 inject_tree_files usr/share/ash-completion
+inject_tree_files etc/X11
+inject_tree_files usr/share/fonts/X11
 # CRT / libc.a for guest linking (also mirrored under lib/tcc by stage-rootfs).
 if [ -f "${TREE}/usr/lib/crt1.o" ]; then
 	inject_file "${TREE}/usr/lib/crt1.o" usr/lib/crt1.o
@@ -177,6 +211,8 @@ done
 $INJECT "$DISK" --mode 0600 "${TREE}/etc/shadow" etc/shadow
 [ -f "${TREE}/etc/ir0-noroot" ] && \
 	$INJECT "$DISK" --mode 0644 "${TREE}/etc/ir0-noroot" etc/ir0-noroot
+[ -f "${TREE}/etc/ir0-home" ] && \
+	$INJECT "$DISK" --mode 0644 "${TREE}/etc/ir0-home" etc/ir0-home
 [ -f "${TREE}/etc/ir0-autologin" ] && \
 	$INJECT "$DISK" --mode 0644 "${TREE}/etc/ir0-autologin" etc/ir0-autologin
 [ -f "${TREE}/etc/busybox/bb_status.tsv" ] && \
@@ -204,6 +240,20 @@ VERIFY_EXTRA=()
 [ -f "${TREE}/usr/bin/extract" ] && VERIFY_EXTRA+=(/usr/bin/extract /bin/extract)
 [ -f "${TREE}/usr/bin/make" ] && VERIFY_EXTRA+=(/usr/bin/make /bin/make)
 [ -f "${TREE}/usr/bin/tcc" ] && VERIFY_EXTRA+=(/usr/bin/tcc /bin/tcc /bin/cc /lib/tcc/libtcc1.a)
+[ -f "${TREE}/usr/bin/Xfbdev" ] && VERIFY_EXTRA+=(/usr/bin/Xfbdev /usr/bin/X)
+[ -f "${TREE}/usr/bin/xinit" ] && VERIFY_EXTRA+=(/usr/bin/xinit)
+[ -f "${TREE}/usr/bin/startx" ] && VERIFY_EXTRA+=(/usr/bin/startx)
+[ -f "${TREE}/usr/bin/xauth" ] && VERIFY_EXTRA+=(/usr/bin/xauth)
+[ -f "${TREE}/etc/X11/xinit/xinitrc" ] && VERIFY_EXTRA+=(/etc/X11/xinit/xinitrc)
+[ -f "${TREE}/etc/ir0-home" ] && VERIFY_EXTRA+=(/etc/ir0-home)
+[ -f "${TREE}/usr/bin/twm" ] && VERIFY_EXTRA+=(/usr/bin/twm)
+[ -f "${TREE}/usr/bin/xterm" ] && VERIFY_EXTRA+=(/usr/bin/xterm)
+[ -f "${TREE}/usr/bin/xclock" ] && VERIFY_EXTRA+=(/usr/bin/xclock)
+[ -f "${TREE}/usr/bin/xeyes" ] && VERIFY_EXTRA+=(/usr/bin/xeyes)
+[ -f "${TREE}/usr/bin/xlogo" ] && VERIFY_EXTRA+=(/usr/bin/xlogo)
+[ -f "${TREE}/usr/share/X11/app-defaults/XLogo" ] && \
+	VERIFY_EXTRA+=(/usr/share/X11/app-defaults/XLogo /usr/share/X11/app-defaults/XLogo-color)
+[ -f "${TREE}/usr/bin/xsetroot" ] && VERIFY_EXTRA+=(/usr/bin/xsetroot)
 
 # Optional Ken games (usually injected post-pack by IR0 install-ken-games)
 if [ -f "${TREE}/usr/ken/games/doom" ]; then

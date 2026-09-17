@@ -7,3 +7,4 @@
 /bin/login
 /bin/su
 /usr/bin/doas
+/usr/bin/Xfbdev
