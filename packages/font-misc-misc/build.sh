@@ -9,5 +9,7 @@ DEST="${PRODUCT_OUT}/stage-x11-fonts/misc"
 	exit 1
 }
 mkdir -p "$DEST"
-install -m 0644 "${SRC}/6x13.bdf" "${DEST}/6x13.bdf"
-echo "✓ font-misc-misc core fixed font OK → ${DEST}"
+for font in 6x12 6x13 8x13 9x15; do
+	install -m 0644 "${SRC}/${font}.bdf" "${DEST}/${font}.bdf"
+done
+echo "✓ font-misc-misc core fixed fonts OK → ${DEST}"

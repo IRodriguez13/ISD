@@ -293,6 +293,7 @@ if manifest_has xinit && [ -x "${STAGE_BIN}/xinit" ]; then
     -bg '#263238' -fg '#eceff1' -bd '#87a9b5' &
 /usr/bin/xeyes -geometry 150x90-22+150 &
 /usr/bin/xlogo -geometry 160x120-24-30 &
+/usr/bin/xcalc -geometry 226x304-210+170 &
 /usr/bin/xterm -geometry 100x30+42+72 -title "IR0 Terminal" &
 exec /usr/bin/twm -f /etc/X11/twm/system.twmrc
 EOF
@@ -301,18 +302,19 @@ fi
 if manifest_has xauth && [ -x "${STAGE_BIN}/xauth" ]; then
 	install -m 0755 "${STAGE_BIN}/xauth" "${DEST}/usr/bin/xauth"
 fi
-for xclient in twm xterm xclock xeyes xlogo xsetroot; do
+for xclient in twm xterm xclock xeyes xlogo xcalc xmessage xsetroot; do
 	if manifest_has "$xclient" && [ -x "${STAGE_BIN}/${xclient}" ]; then
 		install -m 0755 "${STAGE_BIN}/${xclient}" "${DEST}/usr/bin/${xclient}"
 	fi
 done
-if manifest_has xlogo && [ -d "${ROOT}/packages/xlogo/prefix/${ARCH}/usr/share/X11/app-defaults" ]; then
-	mkdir -p "${DEST}/usr/share/X11/app-defaults"
-	install -m 0644 "${ROOT}/packages/xlogo/prefix/${ARCH}/usr/share/X11/app-defaults/XLogo" \
-		"${DEST}/usr/share/X11/app-defaults/XLogo"
-	install -m 0644 "${ROOT}/packages/xlogo/prefix/${ARCH}/usr/share/X11/app-defaults/XLogo-color" \
-		"${DEST}/usr/share/X11/app-defaults/XLogo-color"
-fi
+for xclient in xlogo xcalc xmessage; do
+	app_defaults="${ROOT}/packages/${xclient}/prefix/${ARCH}/usr/share/X11/app-defaults"
+	if manifest_has "$xclient" && [ -d "$app_defaults" ]; then
+		mkdir -p "${DEST}/usr/share/X11/app-defaults"
+		find "$app_defaults" -maxdepth 1 -type f -exec \
+			install -m 0644 '{}' "${DEST}/usr/share/X11/app-defaults/" \;
+	fi
+done
 if manifest_has font-misc-misc && [ -d "${PRODUCT_OUT}/stage-x11-fonts" ]; then
 	mkdir -p "${DEST}/usr/share/fonts/X11"
 	cp -a "${PRODUCT_OUT}/stage-x11-fonts/." "${DEST}/usr/share/fonts/X11/"
@@ -329,6 +331,48 @@ if manifest_has font-misc-misc && [ -d "${PRODUCT_OUT}/stage-x11-fonts" ]; then
 	sed -i "1i${count}" "${font_dir}/fonts.dir"
 	fixed_xlfd="$(sed -n 's/^FONT[[:space:]]\+//p' "${font_dir}/6x13.bdf" | head -n 1)"
 	printf 'fixed %s\n' "$fixed_xlfd" > "${font_dir}/fonts.alias"
+	for bdf in "${font_dir}"/*.bdf; do
+		xlfd="$(sed -n 's/^FONT[[:space:]]\+//p' "$bdf" | head -n 1)"
+		case "$xlfd" in
+			*-ISO10646-1|*-iso10646-1) ;;
+			*) continue ;;
+		esac
+		short_name="$(basename "$bdf" .bdf)"
+		latin1_xlfd="$(printf '%s\n' "$xlfd" | sed 's/-ISO10646-1$/-ISO8859-1/I')"
+		printf '%s %s\n%s %s\n' "$short_name" "$xlfd" \
+			"$latin1_xlfd" "$xlfd" >> "${font_dir}/fonts.alias"
+	done
+fi
+if manifest_has font-adobe-75dpi && [ -d "${DEST}/usr/share/fonts/X11/75dpi" ]; then
+	font_dir="${DEST}/usr/share/fonts/X11/75dpi"
+	count=0
+	: > "${font_dir}/fonts.dir"
+	for bdf in "${font_dir}"/*.bdf; do
+		[ -f "$bdf" ] || continue
+		xlfd="$(sed -n 's/^FONT[[:space:]]\+//p' "$bdf" | head -n 1)"
+		[ -n "$xlfd" ] || { echo "✗ font has no XLFD: $bdf" >&2; exit 1; }
+		printf '%s %s\n' "$(basename "$bdf")" "$xlfd" >> "${font_dir}/fonts.dir"
+		count=$((count + 1))
+	done
+	sed -i "1i${count}" "${font_dir}/fonts.dir"
+fi
+if manifest_has libx11; then
+	x11_locale_src="${ROOT}/packages/libx11/prefix/${ARCH}/usr/share/X11/locale"
+	if [ -d "${x11_locale_src}/C" ]; then
+		mkdir -p "${DEST}/usr/share/X11/locale"
+		install -m 0644 "${x11_locale_src}/locale.alias" \
+			"${x11_locale_src}/locale.dir" \
+			"${x11_locale_src}/compose.dir" \
+			"${DEST}/usr/share/X11/locale/"
+		cp -a "${x11_locale_src}/C" "${DEST}/usr/share/X11/locale/"
+	fi
+fi
+if manifest_has xbitmaps; then
+	bitmap_src="${ROOT}/packages/xbitmaps/prefix/${ARCH}/usr/include/X11/bitmaps"
+	if [ -d "$bitmap_src" ]; then
+		mkdir -p "${DEST}/usr/include/X11/bitmaps"
+		cp -a "$bitmap_src/." "${DEST}/usr/include/X11/bitmaps/"
+	fi
 fi
 
 # Account policy by profile
