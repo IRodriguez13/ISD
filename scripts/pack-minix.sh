@@ -111,12 +111,12 @@ fi
 if [ -f "${TREE}/etc/X11/xinit/xinitrc" ]; then
 	inject_file "${TREE}/etc/X11/xinit/xinitrc" etc/X11/xinit/xinitrc
 fi
-for xclient in twm xterm xclock xeyes xlogo xsetroot; do
+for xclient in twm xterm xclock xeyes xlogo xcalc xmessage xsetroot; do
 	if [ -f "${TREE}/usr/bin/${xclient}" ]; then
 		inject_file "${TREE}/usr/bin/${xclient}" "usr/bin/${xclient}"
 	fi
 done
-for app_default in XLogo XLogo-color; do
+for app_default in XLogo XLogo-color XCalc XCalc-color Xmessage Xmessage-color; do
 	if [ -f "${TREE}/usr/share/X11/app-defaults/${app_default}" ]; then
 		inject_file "${TREE}/usr/share/X11/app-defaults/${app_default}" \
 			"usr/share/X11/app-defaults/${app_default}"
@@ -251,8 +251,14 @@ VERIFY_EXTRA=()
 [ -f "${TREE}/usr/bin/xclock" ] && VERIFY_EXTRA+=(/usr/bin/xclock)
 [ -f "${TREE}/usr/bin/xeyes" ] && VERIFY_EXTRA+=(/usr/bin/xeyes)
 [ -f "${TREE}/usr/bin/xlogo" ] && VERIFY_EXTRA+=(/usr/bin/xlogo)
+[ -f "${TREE}/usr/bin/xcalc" ] && VERIFY_EXTRA+=(/usr/bin/xcalc)
+[ -f "${TREE}/usr/bin/xmessage" ] && VERIFY_EXTRA+=(/usr/bin/xmessage)
 [ -f "${TREE}/usr/share/X11/app-defaults/XLogo" ] && \
 	VERIFY_EXTRA+=(/usr/share/X11/app-defaults/XLogo /usr/share/X11/app-defaults/XLogo-color)
+[ -f "${TREE}/usr/share/X11/app-defaults/XCalc" ] && \
+	VERIFY_EXTRA+=(/usr/share/X11/app-defaults/XCalc /usr/share/X11/app-defaults/XCalc-color)
+[ -f "${TREE}/usr/share/X11/app-defaults/Xmessage" ] && \
+	VERIFY_EXTRA+=(/usr/share/X11/app-defaults/Xmessage /usr/share/X11/app-defaults/Xmessage-color)
 [ -f "${TREE}/usr/bin/xsetroot" ] && VERIFY_EXTRA+=(/usr/bin/xsetroot)
 
 # Optional Ken games (usually injected post-pack by IR0 install-ken-games)

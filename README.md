@@ -38,6 +38,12 @@ Sibling kernel: [`IR0`](https://github.com/IRodriguez13/IR0) — public UAPI
 
 <p align="center"><em>Doom on the desktop profile: fbdev + evdev clients on the ISD rootfs under QEMU (<code>make run PROFILE=desktop</code> from IR0).</em></p>
 
+<p align="center">
+  <img src="Documentation/assets/isd-x11-desktop.png" alt="ISD upstream X11 desktop running on IR0 with uname output" width="960" />
+</p>
+
+<p align="center"><em>Experimental <code>desktop</code> profile: unmodified X.Org clients on TinyX/Xfbdev with twm, xterm, Xaw widgets, mouse and keyboard. The terminal shows the exact IR0 kernel build used by the graphical smoke.</em></p>
+
 ## Fastest path (from IR0)
 
 ```bash

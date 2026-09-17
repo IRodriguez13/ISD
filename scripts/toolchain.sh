@@ -144,10 +144,10 @@ toolchain_pkg_status()
 		busybox|runit)
 			echo "buildable"
 			;;
-		font-cursor-misc|font-misc-misc)
+		font-cursor-misc|font-misc-misc|font-adobe-75dpi)
 			echo "buildable"
 			;;
-		opendoas|ncurses|nano|tinycc|gnumake|doom|iv|pack-extract|xorgproto|xcb-proto|xtrans|libxau|libxdmcp|libxcb|libx11|libxext|libice|libsm|libxt|libxmu|libxfixes|libxi|libxtst|zlib|freetype|libfontenc|libxfont|tinyx|xauth|xinit)
+		opendoas|ncurses|nano|tinycc|gnumake|doom|iv|pack-extract|xorgproto|xcb-proto|xtrans|libxau|libxdmcp|libxcb|libx11|libxext|libice|libsm|libxt|libxmu|libxfixes|libxi|libxtst|zlib|freetype|libfontenc|libxfont|tinyx|xauth|xinit|xcalc|xmessage)
 			echo "blocked-by-package"
 			;;
 		*)

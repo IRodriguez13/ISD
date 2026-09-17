@@ -202,7 +202,8 @@ $(STAMP_PACKAGES)/tinyx: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libfontenc $(STAMP_PACKAGES)/libxfont \
 	$(STAMP_PACKAGES)/zlib
 $(STAMP_PACKAGES)/tinyx: $(STAMP_PACKAGES)/font-cursor-misc \
-	$(STAMP_PACKAGES)/font-misc-misc
+	$(STAMP_PACKAGES)/font-misc-misc \
+	$(STAMP_PACKAGES)/font-adobe-75dpi
 $(STAMP_PACKAGES)/xinit: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/xauth
 $(STAMP_PACKAGES)/xauth: $(STAMP_PACKAGES)/xorgproto \
@@ -235,6 +236,16 @@ $(STAMP_PACKAGES)/xlogo: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
 	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw \
 	$(STAMP_PACKAGES)/libxrender
+$(STAMP_PACKAGES)/xcalc: $(STAMP_PACKAGES)/xorgproto \
+	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
+	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
+	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
+	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw
+$(STAMP_PACKAGES)/xmessage: $(STAMP_PACKAGES)/xorgproto \
+	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
+	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
+	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
+	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw
 $(STAMP_PACKAGES)/xsetroot: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxmu \
 	$(STAMP_PACKAGES)/libxfixes $(STAMP_PACKAGES)/libxrender \
