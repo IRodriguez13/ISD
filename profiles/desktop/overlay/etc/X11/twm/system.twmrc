@@ -47,6 +47,8 @@ menu "IR0"
     "IR0 Desktop"      f.title
     "New terminal"     f.exec "/usr/bin/xterm -title 'IR0 Terminal' &"
     "Mouse monitor"    f.exec "/usr/bin/xeyes -geometry 150x90 &"
+    "Calculator"       f.exec "/usr/bin/xcalc &"
+    "About IR0"        f.exec "/usr/bin/xmessage -center -buttons Close:0 'IR0 desktop on X11' &"
     "About X11"        f.exec "/usr/bin/xlogo -geometry 160x120 &"
     "Window list"      f.menu "TwmWindows"
     "Refresh"          f.refresh

@@ -37,6 +37,7 @@ libfontenc
 libxfont
 font-cursor-misc
 font-misc-misc
+font-adobe-75dpi
 xbitmaps
 tinyx
 xauth
@@ -46,4 +47,6 @@ xterm
 xclock
 xeyes
 xlogo
+xcalc
+xmessage
 xsetroot
