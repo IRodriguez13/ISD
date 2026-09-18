@@ -111,12 +111,12 @@ fi
 if [ -f "${TREE}/etc/X11/xinit/xinitrc" ]; then
 	inject_file "${TREE}/etc/X11/xinit/xinitrc" etc/X11/xinit/xinitrc
 fi
-for xclient in twm xterm xclock xeyes xlogo xcalc xmessage xsetroot; do
+for xclient in twm xterm xclock xeyes xlogo xcalc xmessage xload xsetroot; do
 	if [ -f "${TREE}/usr/bin/${xclient}" ]; then
 		inject_file "${TREE}/usr/bin/${xclient}" "usr/bin/${xclient}"
 	fi
 done
-for app_default in XLogo XLogo-color XCalc XCalc-color Xmessage Xmessage-color; do
+for app_default in XLogo XLogo-color XCalc XCalc-color Xmessage Xmessage-color XLoad; do
 	if [ -f "${TREE}/usr/share/X11/app-defaults/${app_default}" ]; then
 		inject_file "${TREE}/usr/share/X11/app-defaults/${app_default}" \
 			"usr/share/X11/app-defaults/${app_default}"
@@ -164,6 +164,7 @@ inject_tree_files lib/tcc
 # Ash tab-completion snippets (rootfs/base → TREE via stage-rootfs).
 inject_tree_files usr/share/ash-completion
 inject_tree_files etc/X11
+inject_tree_files usr/share/backgrounds
 inject_tree_files usr/share/fonts/X11
 # CRT / libc.a for guest linking (also mirrored under lib/tcc by stage-rootfs).
 if [ -f "${TREE}/usr/lib/crt1.o" ]; then
@@ -201,7 +202,7 @@ inject_file "${TREE}/etc/runit/3" etc/runit/3
 inject_file "${TREE}/etc/runit/sv/console/run" etc/runit/sv/console/run
 inject_file "${TREE}/etc/runit/sv/logger/run" etc/runit/sv/logger/run
 
-for f in passwd group issue hostname profile os-release shells hosts \
+for f in passwd group issue hostname profile ashrc os-release shells hosts \
 	console.conf ir0-profile resolv.conf man.conf; do
 	[ -f "${TREE}/etc/${f}" ] || continue
 	mode=0644
@@ -253,6 +254,7 @@ VERIFY_EXTRA=()
 [ -f "${TREE}/usr/bin/xlogo" ] && VERIFY_EXTRA+=(/usr/bin/xlogo)
 [ -f "${TREE}/usr/bin/xcalc" ] && VERIFY_EXTRA+=(/usr/bin/xcalc)
 [ -f "${TREE}/usr/bin/xmessage" ] && VERIFY_EXTRA+=(/usr/bin/xmessage)
+[ -f "${TREE}/usr/bin/xload" ] && VERIFY_EXTRA+=(/usr/bin/xload)
 [ -f "${TREE}/usr/share/X11/app-defaults/XLogo" ] && \
 	VERIFY_EXTRA+=(/usr/share/X11/app-defaults/XLogo /usr/share/X11/app-defaults/XLogo-color)
 [ -f "${TREE}/usr/share/X11/app-defaults/XCalc" ] && \
@@ -260,6 +262,10 @@ VERIFY_EXTRA=()
 [ -f "${TREE}/usr/share/X11/app-defaults/Xmessage" ] && \
 	VERIFY_EXTRA+=(/usr/share/X11/app-defaults/Xmessage /usr/share/X11/app-defaults/Xmessage-color)
 [ -f "${TREE}/usr/bin/xsetroot" ] && VERIFY_EXTRA+=(/usr/bin/xsetroot)
+[ -f "${TREE}/usr/share/backgrounds/ir0desk.xbm" ] && \
+	VERIFY_EXTRA+=(/usr/share/backgrounds/ir0desk.xbm)
+[ -f "${TREE}/etc/X11/twm/system.twmrc" ] && \
+	VERIFY_EXTRA+=(/etc/X11/twm/system.twmrc)
 
 # Optional Ken games (usually injected post-pack by IR0 install-ken-games)
 if [ -f "${TREE}/usr/ken/games/doom" ]; then

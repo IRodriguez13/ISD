@@ -288,26 +288,63 @@ if manifest_has xinit && [ -x "${STAGE_BIN}/xinit" ]; then
 	cat > "${DEST}/etc/X11/xinit/xinitrc" <<'EOF'
 #!/bin/sh
 # IR0 desktop session assembled exclusively from unmodified X.Org clients.
-/usr/bin/xsetroot -mod 3 3 -fg '#78909c' -bg '#263238'
-/usr/bin/xclock -digital -update 1 -geometry 220x48-18+18 \
+if [ -f /usr/share/backgrounds/ir0desk.xbm ]; then
+	/usr/bin/xsetroot -bitmap /usr/share/backgrounds/ir0desk.xbm \
+	    -fg '#78909c' -bg '#263238' -name 'IR0 Desktop'
+else
+	/usr/bin/xsetroot -mod 3 3 -fg '#78909c' -bg '#263238'
+fi
+sleep 1
+/usr/bin/xclock -geometry 100x100+12+12 \
     -bg '#263238' -fg '#eceff1' -bd '#87a9b5' &
+sleep 1
+/usr/bin/xmessage -timeout 0 -buttons "One:0","Two:0","Three:0","Four:0" \
+    -geometry 280x32+372-58 -bg '#263238' -fg '#eceff1' -bd '#87a9b5' ' ' &
+sleep 1
 /usr/bin/xeyes -geometry 150x90-22+150 &
+sleep 1
 /usr/bin/xlogo -geometry 160x120-24-30 &
+sleep 1
 /usr/bin/xcalc -geometry 226x304-210+170 &
-/usr/bin/xterm -geometry 100x30+42+72 -title "IR0 Terminal" &
-exec /usr/bin/twm -f /etc/X11/twm/system.twmrc
+sleep 1
+(/usr/bin/xterm -ls -fa 9x15 -fb 9x15bold -geometry 100x30+42+72 \
+    -title "IR0 Terminal" || \
+ /usr/bin/xterm -ls -geometry 100x30+42+72 -title "IR0 Terminal") &
+sleep 1
+(/usr/bin/xterm -fa 9x15 -fb 9x15bold -geometry 72x16+520+300 \
+    -title "IR0 Chat" -e /bin/sh -c 'echo IR0 Chat AST-4 pending; exec /bin/sh' || \
+ /usr/bin/xterm -geometry 72x16+520+300 -title "IR0 Chat" \
+    -e /bin/sh -c 'echo IR0 Chat AST-4 pending; exec /bin/sh') &
+if [ -f /etc/X11/twm/system.twmrc ]; then
+	exec /usr/bin/twm -f /etc/X11/twm/system.twmrc
+fi
+exec /usr/bin/twm
 EOF
 	chmod 0755 "${DEST}/etc/X11/xinit/xinitrc"
 fi
 if manifest_has xauth && [ -x "${STAGE_BIN}/xauth" ]; then
 	install -m 0755 "${STAGE_BIN}/xauth" "${DEST}/usr/bin/xauth"
 fi
-for xclient in twm xterm xclock xeyes xlogo xcalc xmessage xsetroot; do
+for xclient in twm xterm xclock xeyes xlogo xcalc xmessage xload xsetroot; do
 	if manifest_has "$xclient" && [ -x "${STAGE_BIN}/${xclient}" ]; then
 		install -m 0755 "${STAGE_BIN}/${xclient}" "${DEST}/usr/bin/${xclient}"
 	fi
 done
-for xclient in xlogo xcalc xmessage; do
+if manifest_has xterm; then
+	xterm_defaults="${ROOT}/packages/xterm/prefix/${ARCH}/etc/X11/app-defaults"
+	if [ -d "$xterm_defaults" ]; then
+		mkdir -p "${DEST}/etc/X11/app-defaults" "${DEST}/usr/share/X11/app-defaults"
+		for ad in XTerm XTerm-color; do
+			if [ -f "${xterm_defaults}/${ad}" ]; then
+				install -m 0644 "${xterm_defaults}/${ad}" \
+					"${DEST}/etc/X11/app-defaults/${ad}"
+				install -m 0644 "${xterm_defaults}/${ad}" \
+					"${DEST}/usr/share/X11/app-defaults/${ad}"
+			fi
+		done
+	fi
+fi
+for xclient in xlogo xcalc xmessage xload; do
 	app_defaults="${ROOT}/packages/${xclient}/prefix/${ARCH}/usr/share/X11/app-defaults"
 	if manifest_has "$xclient" && [ -d "$app_defaults" ]; then
 		mkdir -p "${DEST}/usr/share/X11/app-defaults"

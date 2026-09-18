@@ -49,4 +49,5 @@ xeyes
 xlogo
 xcalc
 xmessage
+xload
 xsetroot
