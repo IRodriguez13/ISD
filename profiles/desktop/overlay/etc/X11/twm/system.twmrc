@@ -4,7 +4,11 @@ RestartPreviousState
 DecorateTransients
 RandomPlacement
 ShowIconManager
-IconManagerGeometry "240x5-18+82" 1
+SortIconManager
+# Keep a single-row window switcher along the lower edge.  It is deliberately
+# implemented with twm's upstream icon manager, so it remains useful without
+# introducing a toolkit-specific panel or private protocol.
+IconManagerGeometry "1008x6+8-24" 6
 BorderWidth 2
 TitleButtonBorderWidth 1
 FramePadding 3
@@ -51,6 +55,8 @@ menu "IR0"
     "About IR0"        f.exec "/usr/bin/xmessage -center -buttons Close:0 'IR0 desktop on X11' &"
     "About X11"        f.exec "/usr/bin/xlogo -geometry 160x120 &"
     "Window list"      f.menu "TwmWindows"
+    "Show task bar"    f.showiconmgr
+    "Hide task bar"    f.hideiconmgr
     "Refresh"          f.refresh
     "Restart manager"  f.restart
     "Exit desktop"     f.quit

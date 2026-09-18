@@ -1,0 +1,8 @@
+# IR0/Unix interactive ash setup (non-login shells: xterm, su -c, …).
+# Login shells already read /etc/profile; ENV points here for the rest.
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+if [ -n "$DISPLAY" ]; then
+	export TERM="${TERM:-xterm}"
+else
+	export TERM="${TERM:-linux}"
+fi

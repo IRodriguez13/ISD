@@ -118,7 +118,8 @@ shell_profile_ok=1
 for shell_profile in rootfs/base/etc/profile rootfs/etc/profile; do
 	grep -q "alias ll='ls -l'" "$shell_profile" \
 		&& grep -q "alias llh='ls -lah'" "$shell_profile" \
-		&& grep -q 'ir0_prompt_path' "$shell_profile" \
+		&& grep -q 'PS1=.*\\w' "$shell_profile" \
+		&& grep -q 'ENV=/etc/ashrc' "$shell_profile" \
 		|| shell_profile_ok=0
 done
 [ "$shell_profile_ok" = 1 ] \

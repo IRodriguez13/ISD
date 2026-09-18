@@ -2,33 +2,38 @@
 # The product BusyBox has no id(1) nor hostname(1), so identity comes from the
 # environment exported by the console login.
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-# Match ncurses fallbacks (linux/vt100/xterm). Avoid bare vt220.
-export TERM="${TERM:-linux}"
+export ENV=/etc/ashrc
+if [ -n "$DISPLAY" ]; then
+	export TERM="${TERM:-xterm}"
+else
+	export TERM="${TERM:-linux}"
+fi
 USER="${USER:-root}"
 HOSTNAME="${HOSTNAME:-ir0}"
 
-# Keep prompts compact without relying on bash-only \w expansion.
-ir0_prompt_path()
-{
-	case "$PWD" in
-	"$HOME") printf '~' ;;
-	"$HOME"/*) printf '~/%s' "${PWD#"$HOME"/}" ;;
-	*) printf '%s' "$PWD" ;;
-	esac
-}
-
+# Use ash PS1 escapes (not functions): inherited PS1 must work in xterm children.
 case "$USER" in
 root)
-	PS1="root@$HOSTNAME"':$(ir0_prompt_path)# '
+	PS1='root@'$HOSTNAME':\w# '
 	;;
 *)
-	PS1="$USER@$HOSTNAME"':$(ir0_prompt_path)$ '
+	PS1="$USER@$HOSTNAME"':\w$ '
 	;;
 esac
 export PS1 HOSTNAME USER
 
 alias ll='ls -l'
 alias llh='ls -lah'
+
+# Desktop profile: launch X11 automatically on console login.
+if [ -z "$DISPLAY" ] && [ -x /usr/bin/startx ] &&
+   [ "$(cat /etc/ir0-profile 2>/dev/null)" = "desktop" ]; then
+	case "$(tty 2>/dev/null)" in
+	/dev/console|/dev/tty[0-9]*)
+		exec /usr/bin/startx
+		;;
+	esac
+fi
 
 # Dennis Ritchie nod: host IR0 tree via virtio-9p (make run: mount_tag=dennis).
 # Offline disk keeps short-name samples under the same path until mounted.
