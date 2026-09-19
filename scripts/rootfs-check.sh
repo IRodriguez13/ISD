@@ -34,7 +34,8 @@ sm=$(stat -c '%a' "${TREE}/etc/shadow")
 [ "$sm" = "600" ] || { echo "✗ shadow mode $sm" >&2; fail=1; }
 
 # No personal / smoke artifacts in canonical profiles
-if [ "$PROFILE" = "minimal" ] || [ "$PROFILE" = "desktop" ] || [ "$PROFILE" = "appliance" ]; then
+	if [ "$PROFILE" = "minimal" ] || [ "$PROFILE" = "desktop" ] || \
+	   [ "$PROFILE" = "desktop-console" ] || [ "$PROFILE" = "appliance" ]; then
 	if grep -RInE 'ivan|/home/ivan|FASE|doom-smoke|f52-harness' "$TREE" 2>/dev/null | head -20; then
 		echo "✗ forbidden content in canonical rootfs" >&2
 		fail=1

@@ -17,7 +17,8 @@ Each profile directory contains:
 |---------|-------|------|------------------|---------|
 | minimal | firstboot | locked | — | Canonical distro |
 | development | root autologin | lab empty pw | doas nano ncurses | Lab / smokes |
-| desktop | firstboot | noroot | doas nano ncurses **tinycc gnumake doom** | IR0-desktop base |
+| desktop | firstboot | noroot | doas nano ncurses **tinycc gnumake doom** + X11 | Auto `startx` on console login |
+| desktop-console | firstboot | noroot | same as **desktop** | Terminal first; run `startx` manually |
 | appliance | none | locked | — | Headless services |
 
 `desktop` lists `tinycc`, `gnumake`, and `doom` in `profiles/desktop/packages.txt`

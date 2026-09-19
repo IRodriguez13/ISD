@@ -35,6 +35,16 @@ if [ -z "$DISPLAY" ] && [ -x /usr/bin/startx ] &&
 	esac
 fi
 
+# Desktop-console: same X stack; start the session manually with startx.
+if [ -z "$DISPLAY" ] && [ -x /usr/bin/startx ] &&
+   [ "$(cat /etc/ir0-profile 2>/dev/null)" = "desktop-console" ]; then
+	case "$(tty 2>/dev/null)" in
+	/dev/console|/dev/tty[0-9]*)
+		echo "IR0 desktop-console: run startx when you want the graphical session."
+		;;
+	esac
+fi
+
 # Dennis Ritchie nod: host IR0 tree via virtio-9p (make run: mount_tag=dennis).
 # Offline disk keeps short-name samples under the same path until mounted.
 if [ -d /heart/dennis/src ]; then

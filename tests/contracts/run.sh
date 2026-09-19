@@ -102,7 +102,7 @@ python3 scripts/isdconfig.py --config "$CFG_ISO/.isdconfig.d/development" \
 # --- C: overlay independence (.keep trees present; Makefile find deps) -------
 echo "-- C overlays --"
 ov_ok=1
-for p in minimal development desktop appliance; do
+for p in minimal development desktop desktop-console appliance; do
 	[ -f "profiles/$p/overlay/.keep" ] || [ -f "profiles/$p/overlay/etc/.keep" ] || ov_ok=0
 done
 [ -f rootfs/arch/x86_64/.keep ] && [ -f rootfs/local/.keep ] || ov_ok=0

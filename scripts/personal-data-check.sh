@@ -13,7 +13,8 @@ scan_paths=("${ROOT}/rootfs/base" "${ROOT}/rootfs/etc")
 if [ -d "$TREE" ]; then
 	scan_paths+=("$TREE")
 fi
-if [ "$PROFILE" = "minimal" ] || [ "$PROFILE" = "desktop" ] || [ "$PROFILE" = "appliance" ]; then
+if [ "$PROFILE" = "minimal" ] || [ "$PROFILE" = "desktop" ] || \
+   [ "$PROFILE" = "desktop-console" ] || [ "$PROFILE" = "appliance" ]; then
 	:
 fi
 

@@ -414,7 +414,7 @@ fi
 
 # Account policy by profile
 case "$PROFILE" in
-minimal|desktop|appliance)
+minimal|desktop|desktop-console|appliance)
 	install -m 0644 "${ROOT}/rootfs/base/etc/passwd" "${DEST}/etc/passwd"
 	install -m 0600 "${ROOT}/rootfs/base/etc/shadow" "${DEST}/etc/shadow"
 	install -m 0644 "${ROOT}/rootfs/base/etc/group" "${DEST}/etc/group"
@@ -434,10 +434,10 @@ development)
 	;;
 esac
 
-if [ "$PROFILE" = "desktop" ] || [ "${ROOT_POLICY:-}" = "noroot_login" ]; then
+if [ "$PROFILE" = "desktop" ] || [ "$PROFILE" = "desktop-console" ] || [ "${ROOT_POLICY:-}" = "noroot_login" ]; then
 	printf '1\n' > "${DEST}/etc/ir0-noroot"
 fi
-if [ "$PROFILE" = "desktop" ]; then
+if [ "$PROFILE" = "desktop" ] || [ "$PROFILE" = "desktop-console" ]; then
 	printf 'ext2 /dev/hdb /home\n' > "${DEST}/etc/ir0-home"
 fi
 if [ "$PROFILE" = "appliance" ]; then
