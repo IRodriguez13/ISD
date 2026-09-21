@@ -57,10 +57,7 @@ tar -xf "$PKG/dist/$TARBALL" -C "$TMP"
 [ -d "$TMP/$SRCROOT" ] || { echo "✗ $NAME: missing $SRCROOT in archive" >&2; exit 1; }
 mv "$TMP/$SRCROOT" "$PKG/src"
 
-shopt -s nullglob
-for p in "$PKG"/patches/*.patch; do
-	echo "  PATCH   $NAME $(basename "$p")"
-	patch -p1 -d "$PKG/src" -i "$p" --no-backup-if-mismatch
-done
+chmod +x "$ROOT/scripts/apply-isd-patches.sh"
+"$ROOT/scripts/apply-isd-patches.sh" "$NAME"
 
 echo "✓ fetch $NAME OK"

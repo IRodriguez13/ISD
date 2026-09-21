@@ -1,0 +1,68 @@
+---
+description: ISD allows root patches/ only for verified upstream source bugs; IR0-first always
+alwaysApply: true
+---
+
+# ISD — Upstream patches only (`patches/`)
+
+ISD ships **upstream third-party source** (xterm, TinyX, musl, BusyBox, …).
+Default: **do not patch** ports to tolerate IR0 kernel gaps.
+
+Complements IR0 `ir0-no-userspace-patches.mdc` and `ir0-userspace-first-linux-abi.mdc`.
+
+## The one exception
+
+The directory **`patches/` at the ISD repo root** is the **only** sanctioned
+place for changes to upstream **source trees** when **all** of the following hold:
+
+1. **IR0-first classification** — kernel ABI/uaccess/signal/PTY paths ruled out
+   with evidence (`USER_FAULT_FRAME`, `linux-abi-audit`, smokes).
+2. **Upstream ownership** — defect is in vendor code (e.g. xterm `button.c`), not
+   IR0 kernel or ISD packaging policy alone.
+3. **Documentation** — row in `Documentation/PATCHES.md` (symptom, rip, IR0 vs
+   Linux repro status, retire criteria).
+4. **Tested** — package rebuild + smoke or manual repro showing fix; no “patch
+   and hope”.
+5. **Upstream candidate** — patch quality suitable for maintainer mailing list
+   (xterm → Thomas Dickey); not a permanent fork.
+
+If Linux production reproduces the same crash on the **same upstream version**,
+the upstream bug is **unequivocal**. Until then, mark **LINUX PENDING** — still
+desconfiar de IR0 first, but do not blame the kernel without proof.
+
+## Forbidden (same spirit as IR0)
+
+| Forbidden | Instead |
+|-----------|---------|
+| Patch musl/BusyBox/ash for `-EINTR`/TTY/signal ABI | Fix IR0 kernel |
+| Patch xterm to hide wrong `TIOCSWINSZ`/PTY behavior | Fix IR0 devfs/PTY |
+| Ad-hoc edits in `packages/*/src` without a patch file | Add `patches/<pkg>/NNNN-….patch` + doc |
+| “Works in QEMU” without rebuild + smoke | `make build` + profile smoke |
+
+## Layout and wiring
+
+```text
+patches/<package>/*.patch     ← canonical new patches
+packages/<pkg>/patches/       ← legacy; avoid new files here
+scripts/apply-isd-patches.sh  ← applies both; idempotent
+```
+
+Applied on `make fetch` and before X autotools builds.
+
+## Agent checklist (before adding a patch)
+
+- [ ] IR0 kernel fix attempted or ruled out with log/symbol evidence
+- [ ] Component identified (xterm client vs X server vs kernel)
+- [ ] `Documentation/PATCHES.md` updated
+- [ ] Patch applies with `-p1` on clean upstream tarball
+- [ ] Package rebuild PASS
+- [ ] Smoke or manual repro PASS
+- [ ] Linux repro status recorded (done / pending / N/A with reason)
+- [ ] Upstream submission path noted
+
+## Anti-patterns
+
+- Expanding `patches/` for every ISD convenience tweak.
+- Duplicating IR0 `ir0-patches` belts in ISD.
+- Marking “upstream bug” without `addr2line`/backtrace on **vendor** symbols.
+- Leaving stale patches after upstream merge (retire per `Documentation/PATCHES.md`).

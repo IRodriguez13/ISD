@@ -25,22 +25,26 @@ export PS1 HOSTNAME USER
 alias ll='ls -l'
 alias llh='ls -lah'
 
-# Desktop profile: launch X11 automatically on console login.
-if [ -z "$DISPLAY" ] && [ -x /usr/bin/startx ] &&
-   [ "$(cat /etc/ir0-profile 2>/dev/null)" = "desktop" ]; then
+# Console login session: product profile plus optional one-shot host override
+# (/etc/ir0-session written by make kmang before poweron).
+_ir0_session=""
+if [ -f /etc/ir0-session ]; then
+	_ir0_session="$(tr -d '[:space:]' </etc/ir0-session)"
+	rm -f /etc/ir0-session
+fi
+_ir0_profile="$(cat /etc/ir0-profile 2>/dev/null)"
+_auto_x=0
+case "$_ir0_session" in
+x) _auto_x=1 ;;
+terminal) _auto_x=0 ;;
+*)
+	[ "$_ir0_profile" = "desktop" ] && _auto_x=1
+	;;
+esac
+if [ "$_auto_x" = 1 ] && [ -z "$DISPLAY" ] && [ -x /usr/bin/startx ]; then
 	case "$(tty 2>/dev/null)" in
 	/dev/console|/dev/tty[0-9]*)
 		exec /usr/bin/startx
-		;;
-	esac
-fi
-
-# Desktop-console: same X stack; start the session manually with startx.
-if [ -z "$DISPLAY" ] && [ -x /usr/bin/startx ] &&
-   [ "$(cat /etc/ir0-profile 2>/dev/null)" = "desktop-console" ]; then
-	case "$(tty 2>/dev/null)" in
-	/dev/console|/dev/tty[0-9]*)
-		echo "IR0 desktop-console: run startx when you want the graphical session."
 		;;
 	esac
 fi

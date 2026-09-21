@@ -1,0 +1,54 @@
+To: Thomas E. Dickey <tdickey@invisible-island.net>
+Subject: [PATCH] xterm: guard MapSelections against invalid Xt String parameters
+
+Xterm version: 411 (xterm-411.tgz from invisible-mirror.net)
+
+---
+
+Thomas,
+
+While testing xterm 411 under a twm desktop session, we observed occasional
+SIGSEGV in MapSelections() when handling Xt action parameters for selection
+and paste (SELECT token in translations).
+
+Symbolization of the fault:
+
+  rip  → strcmp (first argument dereference)
+  ret  → MapSelections (button.c), after isSELECT(params[j])
+  CR2  → 0x9 (non-NULL garbage String pointer)
+
+The vanilla loop calls isSELECT(params[j]), which expands to
+strcmp(NonNull(value), "SELECT"). NonNull(NULL) is safe, but a non-null
+invalid pointer (e.g. (String)9) is not rejected and faults inside strcmp.
+
+This is userspace-only (cs=user); we ruled out kernel-side causes on our OS
+before preparing this client-side guard.
+
+Attached patch adds InvalidSelectionParam() to skip parameters whose address
+is below 4096, logging xtermWarning instead of crashing. A minimal Linux
+reproducer using the same isSELECT logic is included (linux-baseline-repro.c);
+it SIGSEGV on stock glibc without the guard.
+
+Verification on our side:
+
+  - patch applies cleanly to vanilla xterm-411/button.c
+  - xterm rebuild + desktop session smoke (no crash)
+  - scripts/verify-xterm-patch-linux-baseline.sh on Linux host
+
+Full notes: patches/xterm/REPORT.md in our ISD tree.
+
+Please let me know if you prefer a different guard (e.g. XtRange or explicit
+NULL-only checks) or if you want the full serial log / gdb backtrace from
+the integrated session.
+
+Thanks,
+Iván Ezequiel Rodriguez
+
+---
+
+Attachments (for email):
+
+  0001-button-MapSelections-guard-invalid-selection-param.patch
+  linux-baseline-repro.c          (optional — demonstrates bug class on Linux)
+
+Do not send until reviewed — see ISD/patches/xterm/REPORT.md for evidence matrix.

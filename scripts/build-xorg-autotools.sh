@@ -10,6 +10,9 @@ PKG="${ROOT}/packages/${name}"
 PREFIX="${PKG}/prefix/${ARCH}"
 [ -d "${PKG}/src" ] || { echo "✗ missing ${name} source; run: make fetch PROFILE=desktop" >&2; exit 1; }
 
+chmod +x "${ROOT}/scripts/apply-isd-patches.sh"
+"${ROOT}/scripts/apply-isd-patches.sh" "${name}"
+
 deps="$(sed -n 's/^DEPENDS=//p' "${PKG}/package.conf")"
 pc=""
 cpp="-I${SYSROOT}/usr/include"
