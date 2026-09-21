@@ -16,7 +16,7 @@ chmod +x scripts/stamp-run.sh scripts/resolve-packages.sh scripts/isdconfig.py \
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-echo "=== ISD contracts (A–F) ==="
+echo "=== ISD contracts (A–H) ==="
 
 # --- A: stamp-run writes only on success; skip leaves stamp untouched --------
 echo "-- A stamp-run --"
@@ -139,19 +139,30 @@ grep -q 'firstboot.done' scripts/pack-minix.sh \
 	&& ok "C pack rejects stale firstboot.done" || bad "C pack no firstboot.done guard"
 
 # --- D: DOOM IWAD gate + tinycc/gnumake/doom ready + clean policy -----------
-echo "-- D packages / scrub / clean --"
+echo "-- D packages / validate / clean --"
 CFGD="$TMP/isdconfig-d"
 PROFILE=minimal ISD_CONFIG="$CFGD" python3 scripts/isdconfig.py --config "$CFGD" defconfig --force
 sed -i 's/CONFIG_PKG_DOOM=n/CONFIG_PKG_DOOM=y/' "$CFGD"
-# Scrub only when no IWAD is discoverable (disable autodiscover for this check).
+# Validate must fail without IWAD; config stays unchanged (no silent scrub).
 set +e
 out=$(env -u ISD_DOOM_IWAD ISD_DOOM_SKIP_AUTODISCOVER=1 PROFILE=minimal ISD_CONFIG="$CFGD" \
 	python3 scripts/isdconfig.py --config "$CFGD" validate 2>&1)
 rc=$?
 set -e
-[ "$rc" -eq 0 ] && grep -q 'CONFIG_PKG_DOOM=n' "$CFGD" \
-	&& ok "D DOOM scrubbed to n without IWAD" || bad "D DOOM: rc=$rc out=$out"
-echo "$out" | grep -qi 'DOOM\|IWAD\|doom' && ok "D DOOM message" || ok "D DOOM scrub silent ok"
+[ "$rc" -ne 0 ] && grep -q 'CONFIG_PKG_DOOM=y' "$CFGD" \
+	&& ok "D DOOM=y kept on validate failure without IWAD" || bad "D DOOM: rc=$rc cfg=$(grep DOOM "$CFGD") out=$out"
+echo "$out" | grep -qi 'DOOM\|IWAD\|doom' && ok "D DOOM error message" || bad "D DOOM no message: $out"
+
+set +e
+out_set=$(env -u ISD_DOOM_IWAD ISD_DOOM_SKIP_AUTODISCOVER=1 PROFILE=minimal ISD_CONFIG="$CFGD" \
+	python3 scripts/isdconfig.py --config "$CFGD" set CONFIG_PKG_DOOM=y 2>&1)
+rc_set=$?
+set -e
+grep -q 'CONFIG_PKG_DOOM=y' "$CFGD" \
+	&& [ "$rc_set" -ne 0 ] \
+	&& echo "$out_set" | grep -qi 'unchanged\|not buildable' \
+	&& ok "D set DOOM=y rejected without IWAD" \
+	|| bad "D set DOOM: rc=$rc_set out=$out_set cfg=$(grep DOOM "$CFGD")"
 
 # When an IWAD exists (lab universal-doom or explicit), DOOM=y must stick.
 CFGD2="$TMP/isdconfig-d2"
@@ -274,8 +285,8 @@ else
 fi
 
 # Paths / help smoke
-grep -q 'IMAGE_DIR' mk/paths.mk && grep -q 'STAMP_PACKAGES' mk/paths.mk \
-	&& ok "A paths.mk stamps" || bad "A paths.mk incomplete"
+grep -q 'VARIANT_ID' mk/paths.mk && grep -q 'variants/$(VARIANT_ID)/product' mk/paths.mk \
+	&& ok "A paths.mk variant stamps" || bad "A paths.mk variant layout"
 grep -q '\.isdconfig' .gitignore && ok "B .isdconfig gitignored" || bad "B gitignore"
 
 # --- G: login session auto-X contract ---------------------------------------
@@ -295,6 +306,34 @@ grep -q 'CONFIG_FEATURE_EDITING_ASK_TERMINAL=y' packages/busybox/ir0_full_defcon
 	&& ok "G busybox asks terminal for keys" || bad "G busybox ASK_TERMINAL off"
 [ -f "${ROOT}/IR0_ISD_INTERFACE_SUPPORTED" ] \
 	&& ok "G IR0_ISD_INTERFACE_SUPPORTED present" || bad "G interface supported file"
+
+# --- H: print-artifacts contract --------------------------------------------
+echo "-- H print-artifacts --"
+chmod +x scripts/print-artifacts.sh
+out_h=$(ARCH=x86_64 PROFILE=minimal scripts/print-artifacts.sh)
+echo "$out_h" | grep -q '^ROOT_DISK=.*/disk.img$' \
+	&& ok "H minimal ROOT_DISK" || bad "H ROOT_DISK: $out_h"
+echo "$out_h" | grep -q '^REQUIRES_HOME_DISK=0$' \
+	&& ok "H minimal no home disk" || bad "H REQUIRES_HOME_DISK minimal: $out_h"
+out_hd=$(ARCH=x86_64 PROFILE=desktop scripts/print-artifacts.sh)
+echo "$out_hd" | grep -q '^REQUIRES_HOME_DISK=1$' \
+	&& ok "H desktop declares home disk" || bad "H desktop home: $out_hd"
+echo "$out_hd" | grep -q '^HOME_DISK=.*/home.ext2.img$' \
+	&& ok "H desktop HOME_DISK path" || bad "H HOME_DISK: $out_hd"
+grep -q '^print-artifacts-mk:' Makefile && ok "H print-artifacts-mk target" || bad "H no print-artifacts-mk"
+grep -q '^update-machine:' Makefile && ok "H update-machine target" || bad "H no update-machine"
+vid=$(ARCH=x86_64 PROFILE=minimal bash scripts/compute-variant-id.sh)
+echo "$vid" | grep -q '^minimal-[0-9a-f]\{12\}$' \
+	&& ok "H variant id content hash" || bad "H variant id: $vid"
+
+# resolve-packages must fail on unknown profile (no silent busybox+runit fallback).
+set +e
+bad_prof=$(PROFILE=does-not-exist bash scripts/resolve-packages.sh 2>&1)
+rc_prof=$?
+set -e
+[ "$rc_prof" -ne 0 ] && echo "$bad_prof" | grep -qi 'unknown PROFILE' \
+	&& ok "H resolve-packages fails on unknown profile" \
+	|| bad "H resolve fallback: rc=$rc_prof out=$bad_prof"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

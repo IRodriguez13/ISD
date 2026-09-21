@@ -174,7 +174,7 @@ def find_doom_iwad() -> Path | None:
 
 
 def refuse_enable_pkg(short: str) -> str | None:
-    """If short cannot be enabled (=y), return a warning; else None."""
+    """If short cannot be enabled (=y), return an error message; else None."""
     if short in FORBIDDEN_DISABLE:
         return None
     if short not in EXTRAS:
@@ -182,30 +182,28 @@ def refuse_enable_pkg(short: str) -> str | None:
     d = pkg_dirname(short)
     if not recipe_ready(short):
         return (
-            f"CONFIG_PKG_{short}=y ignored: packages/{d}/ not packaged yet "
-            f"(forced n). Interim: IR0_LEGACY_USERSPACE=1 make load-userspace-devtools"
+            f"CONFIG_PKG_{short}=y is not buildable: packages/{d}/ not packaged yet "
+            f"(interim: IR0_LEGACY_USERSPACE=1 make load-userspace-devtools)"
         )
     if short == "DOOM":
         if find_doom_iwad() is None:
             return (
-                "CONFIG_PKG_DOOM=y ignored: no IWAD found "
-                "(set ISD_DOOM_IWAD or place DOOM1.WAD in ../universal-doom/) "
-                "(forced n)"
+                "CONFIG_PKG_DOOM=y is not buildable: no IWAD found "
+                "(set ISD_DOOM_IWAD or place DOOM1.WAD in ../universal-doom/)"
             )
     return None
 
 
-def scrub_unready_pkgs(data: dict[str, str]) -> list[str]:
-    """Force =n for packages that cannot be built; return warning lines."""
-    warnings: list[str] = []
+def validate_enabled_pkgs(data: dict[str, str]) -> list[str]:
+    """Return errors for enabled extras that cannot be built."""
+    errors: list[str] = []
     for short in EXTRAS:
         if not pkg_enabled(data, short):
             continue
         msg = refuse_enable_pkg(short)
         if msg:
-            data[f"CONFIG_PKG_{short}"] = "n"
-            warnings.append(f"⚠ {msg}")
-    return warnings
+            errors.append(f"✗ {msg}")
+    return errors
 
 
 def _normalize_assignment(item: str) -> tuple[str, str, str] | None:
@@ -263,6 +261,7 @@ def cmd_show(path: Path) -> int:
 
 def cmd_set(path: Path, assignments: list[str]) -> int:
     data = ensure_defaults(parse_cfg(path))
+    pending: list[tuple[str, str, str]] = []
     for item in assignments:
         parsed = _normalize_assignment(item)
         if parsed is None:
@@ -270,7 +269,6 @@ def cmd_set(path: Path, assignments: list[str]) -> int:
             return 1
         kind, short, val = parsed
         if kind == "PKG":
-            key = f"CONFIG_PKG_{short}"
             if short in FORBIDDEN_DISABLE and val == "n":
                 print(
                     f"✗ cannot disable CONFIG_PKG_{short} (core package)",
@@ -283,19 +281,25 @@ def cmd_set(path: Path, assignments: list[str]) -> int:
             if val == "y":
                 msg = refuse_enable_pkg(short)
                 if msg:
-                    print(f"⚠ {msg}", file=sys.stderr)
-                    val = "n"
+                    print(f"✗ {msg}", file=sys.stderr)
+                    print("  configuration unchanged", file=sys.stderr)
+                    return 1
+        else:
+            if short not in APPLETS:
+                print(f"✗ unknown applet key CONFIG_APPLET_{short}", file=sys.stderr)
+                return 1
+        pending.append((kind, short, val))
+
+    for kind, short, val in pending:
+        if kind == "PKG":
+            key = f"CONFIG_PKG_{short}"
             data[key] = val
             if val == "y" and short in AUTO_DEPS:
                 for dep in AUTO_DEPS[short]:
                     data[f"CONFIG_PKG_{dep}"] = "y"
         else:
-            if short not in APPLETS:
-                print(f"✗ unknown applet key CONFIG_APPLET_{short}", file=sys.stderr)
-                return 1
             data[f"CONFIG_APPLET_{short}"] = val
-    for w in scrub_unready_pkgs(data):
-        print(w, file=sys.stderr)
+
     write_cfg(path, data)
     print(f"  CONFIG    updated {path}")
     return 0
@@ -304,7 +308,6 @@ def cmd_set(path: Path, assignments: list[str]) -> int:
 def cmd_validate(path: Path, profile: str) -> int:
     data = ensure_defaults(parse_cfg(path))
     errors: list[str] = []
-    changed = False
 
     for short in FORBIDDEN_DISABLE:
         if not pkg_enabled(data, short):
@@ -322,21 +325,7 @@ def cmd_validate(path: Path, profile: str) -> int:
                         f"(auto-dep)."
                     )
 
-    # Auto-downgrade unready extras so first-boot / validate-config cannot wedge.
-    for w in scrub_unready_pkgs(data):
-        print(w, file=sys.stderr)
-        changed = True
-
-    for short in EXTRAS:
-        if not pkg_enabled(data, short):
-            continue
-        dirname = pkg_dirname(short)
-        pkg_dir = ROOT / "packages" / dirname
-        if not pkg_dir.is_dir() or not (pkg_dir / "build.sh").is_file():
-            errors.append(
-                f"✗ CONFIG_PKG_{short}=y but packages/{dirname}/ missing "
-                f"(internal: scrub failed)."
-            )
+    errors.extend(validate_enabled_pkgs(data))
 
     for short, applet in APPLETS.items():
         if not applet_enabled(data, short):
@@ -348,10 +337,6 @@ def cmd_validate(path: Path, profile: str) -> int:
                     f"✗ CONFIG_APPLET_TOP=y but packages/busybox/ir0_full.config "
                     f"lacks CONFIG_TOP=y (rebuild busybox after enabling TOP)."
                 )
-
-    if changed and path.is_file():
-        write_cfg(path, data)
-        print(f"  CONFIG    scrubbed unready extras → {path}")
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
@@ -466,9 +451,11 @@ def cmd_menu(path: Path, profile: str) -> int:
             if data[key] == "y":
                 msg = refuse_enable_pkg(short)
                 if msg:
-                    out.write(f"    ⚠ {msg}\n")
+                    out.write(f"    ✗ {msg}\n")
                     out.flush()
-                    data[key] = "n"
+                    out.write("    configuration unchanged for this option\n")
+                    out.flush()
+                    data[key] = cur
             if data[key] == "y" and short in AUTO_DEPS:
                 for dep in AUTO_DEPS[short]:
                     data[f"CONFIG_PKG_{dep}"] = "y"

@@ -26,6 +26,7 @@ fi
 
 kernel_ver=""
 required_scripts=()
+public_targets=()
 while IFS= read -r line || [ -n "$line" ]; do
 	line="${line%%#*}"
 	line="${line#"${line%%[![:space:]]*}"}"
@@ -37,6 +38,9 @@ while IFS= read -r line || [ -n "$line" ]; do
 		;;
 	REQUIRED_SCRIPT=*)
 		required_scripts+=("${line#REQUIRED_SCRIPT=}")
+		;;
+	PUBLIC_TARGET=*)
+		public_targets+=("${line#PUBLIC_TARGET=}")
 		;;
 	esac
 done < "$iface"
@@ -63,6 +67,13 @@ fi
 for script in "${required_scripts[@]}"; do
 	if [ ! -f "${IR0_ROOT}/${script}" ]; then
 		echo "✗ IR0 missing required script: ${script}" >&2
+		exit 1
+	fi
+done
+
+for target in "${public_targets[@]}"; do
+	if ! make -C "$IR0_ROOT" -n "$target" >/dev/null 2>&1; then
+		echo "✗ IR0 missing public make target: ${target}" >&2
 		exit 1
 	fi
 done

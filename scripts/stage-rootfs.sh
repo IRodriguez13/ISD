@@ -9,7 +9,12 @@ PROFILE="${IR0_PRODUCT_PROFILE:-minimal}"
 ARCH="${ARCH:-x86_64}"
 # shellcheck disable=SC1091
 source "${ROOT}/scripts/toolchain.sh"
-PRODUCT_OUT="${PRODUCT_OUT:-${ROOT}/out/${ARCH}/product}"
+# Fallback when PRODUCT_OUT is not passed (variant-aware layout).
+if [ -z "${PRODUCT_OUT:-}" ]; then
+	_variant_id="$(PROFILE="${PROFILE}" ARCH="${ARCH}" IR0_ROOT="${IR0_ROOT:-}" \
+		bash "${ROOT}/scripts/compute-variant-id.sh" 2>/dev/null || echo "${PROFILE}")"
+	PRODUCT_OUT="${ROOT}/out/${ARCH}/variants/${_variant_id}/product"
+fi
 RUNIT_BIN="${PRODUCT_OUT}/bin"
 STAGE_BIN="${PRODUCT_OUT}/stage-bin"
 STAGE_SCRIPTS="${PRODUCT_OUT}/stage-scripts"

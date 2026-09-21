@@ -20,8 +20,7 @@ PROFILE  ?= minimal
 ARCH     ?= x86_64
 
 # Ensure out/ exists before toolchain stamp generation.
-$(shell mkdir -p $(CURDIR)/out)
-# Make's default CC=cc must not shadow the musl toolchain facade.
+# Do not mkdir at parse time — it breaks IR0 release-check-clean fresh guard.
 ifeq ($(origin CC),default)
   CC :=
 endif
@@ -30,9 +29,10 @@ include mk/paths.mk
 include mk/toolchain.mk
 
 # Resolved set: core ∪ profile packages.txt ∪ profile-local config.
-RESOLVED_PACKAGES := $(shell PROFILE=$(PROFILE) bash $(CURDIR)/scripts/resolve-packages.sh 2>/dev/null)
+# Empty or failed resolve is a hard error (no silent busybox+runit fallback).
+RESOLVED_PACKAGES := $(shell PROFILE=$(PROFILE) bash $(CURDIR)/scripts/resolve-packages.sh)
 ifeq ($(strip $(RESOLVED_PACKAGES)),)
-  RESOLVED_PACKAGES := busybox runit
+  $(error resolve-packages.sh failed or returned empty for PROFILE=$(PROFILE))
 endif
 
 PKG_STAMPS := $(addprefix $(STAMP_PACKAGES)/,$(RESOLVED_PACKAGES))
@@ -54,7 +54,8 @@ ROOTFS_INPUTS := \
 	profiles-check toolchain-check elf-audit uapi-audit personal-data-check \
 	rootfs-check release-check clean distclean help check-kernel check-ir0 \
 	check-ir0-interface isd-contracts isd-verify-rootfs \
-	compat-links isd-defconfig isdconfig validate-config resolve-packages image-ext2-home \
+	compat-links isd-defconfig isdconfig validate-config resolve-packages \
+	print-artifacts print-artifacts-mk update-machine image-ext2-home \
 	ai-dev-rules-install \
 	$(addprefix build-,$(RESOLVED_PACKAGES))
 
@@ -75,18 +76,13 @@ help:
 	@echo "  clean:     remove out/ only (build artefacts); keeps packages/*/src+dist"
 	@echo "  distclean: clean + delete packages/*/src (keeps downloaded dist/ tarballs)"
 
-check-kernel:
-	@if [ ! -f "$(IR0_ROOT)/scripts/inject_init_minix.py" ]; then \
-		echo "✗ kernel tree not found at IR0_ROOT=$(IR0_ROOT)"; \
-		echo "  export IR0_ROOT=/path/to/IR0  (only needed for MINIX/ISO adapters)"; \
-		exit 1; \
-	fi
-
 check-ir0-interface:
-	@chmod +x scripts/check-ir0-interface.sh
+	@chmod +x scripts/check-ir0-interface.sh scripts/ir0-public-tool.sh
 	@IR0_ROOT="$(IR0_ROOT)" scripts/check-ir0-interface.sh
 
-check-ir0: check-kernel check-ir0-interface
+check-kernel: check-ir0-interface
+
+check-ir0: check-kernel
 
 isd-contracts:
 	@chmod +x tests/contracts/run.sh
@@ -113,6 +109,26 @@ validate-config:
 resolve-packages:
 	@chmod +x scripts/resolve-packages.sh
 	@PROFILE=$(PROFILE) scripts/resolve-packages.sh
+
+print-artifacts:
+	@chmod +x scripts/print-artifacts.sh
+	@ARCH=$(ARCH) PROFILE=$(PROFILE) scripts/print-artifacts.sh
+
+print-artifacts-mk:
+	@ARCH=$(ARCH) PROFILE=$(PROFILE) scripts/print-artifacts.sh | sed \
+		-e 's/^ROOT_DISK=/ROOT_DISK:=/' \
+		-e 's/^HOME_DISK=/HOME_DISK:=/' \
+		-e 's/^ROOTFS=/ROOTFS:=/' \
+		-e 's/^ROOTFS_STAMP=/ROOTFS_STAMP:=/' \
+		-e 's/^REQUIRES_HOME_DISK=/REQUIRES_HOME_DISK:=/' \
+		-e 's/^VARIANT_ID=/VARIANT_ID:=/' \
+		-e 's/^ARCH=/ARCH:=/' \
+		-e 's/^PROFILE=/PROFILE:=/'
+
+update-machine:
+	@chmod +x scripts/update-machine.sh scripts/ir0-public-tool.sh
+	@IR0_ROOT="$(IR0_ROOT)" ARCH="$(ARCH)" PROFILE="$(PROFILE)" \
+		MACHINE_DIR="$(MACHINE_DIR)" scripts/update-machine.sh
 
 # --- stamps: toolchain / UAPI ------------------------------------------------
 
@@ -360,7 +376,8 @@ $(DISK): | check-ir0
 	@mkdir -p $(dir $(DISK))
 	@echo "  DISK    $(DISK) ($(DISK_MB)M MINIX)"
 	@dd if=/dev/zero of=$(DISK) bs=1M count=$(DISK_MB) status=none
-	@python3 $(IR0_ROOT)/scripts/inject_init_minix.py --format-large $(DISK)
+	@INJECT=$$(bash scripts/ir0-public-tool.sh "$(IR0_ROOT)" ir0-minix-inject-path); \
+		python3 "$$INJECT" --format-large $(DISK)
 
 disk: $(DISK)
 

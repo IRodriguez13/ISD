@@ -2,13 +2,22 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Resolve the package set for PROFILE:
 #   core ∪ profile packages ∪ profile-local .isdconfig extras
-# Auto-dep: nano → ncurses. Validate packages/<name> exists.
+# Auto-dep: nano → ncurses. Missing recipes are hard errors (no silent omit).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE="${PROFILE:-minimal}"
 CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
 PROF_PKGS="${ROOT}/profiles/${PROFILE}/packages.txt"
+
+fail() {
+	echo "✗ resolve-packages: $*" >&2
+	exit 1
+}
+
+if [ ! -f "$PROF_PKGS" ]; then
+	fail "unknown PROFILE=${PROFILE} (missing ${PROF_PKGS})"
+fi
 
 declare -A WANT=()
 
@@ -20,15 +29,25 @@ add() {
 	done
 }
 
-# Core always present.
-add busybox runit
+require_recipe() {
+	local pkg="$1"
+	local ctx="$2"
+	if [ ! -f "${ROOT}/packages/${pkg}/build.sh" ]; then
+		fail "${ctx}: packages/${pkg}/ missing build.sh"
+	fi
+}
 
-if [ -f "$PROF_PKGS" ]; then
-	while read -r line || [ -n "${line:-}" ]; do
-		[[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-		add "$line"
-	done <"$PROF_PKGS"
-fi
+# Core always present.
+for core in busybox runit; do
+	require_recipe "$core" "core"
+	add "$core"
+done
+
+while read -r line || [ -n "${line:-}" ]; do
+	[[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+	require_recipe "$line" "profiles/${PROFILE}/packages.txt"
+	add "$line"
+done <"$PROF_PKGS"
 
 cfg_val() {
 	local key="$1"
@@ -40,8 +59,6 @@ cfg_val() {
 }
 
 # Map CONFIG_PKG_FOO=y → package directory name.
-# Skip names without packages/<name>/build.sh (warn; do not fail) so a stale
-# .isdconfig with TINYCC=y cannot wedge first-boot.
 if [ -f "$CFG" ]; then
 	while IFS= read -r line || [ -n "${line:-}" ]; do
 		[[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
@@ -49,15 +66,11 @@ if [ -f "$CFG" ]; then
 		CONFIG_PKG_*=y|CONFIG_PKG_*=Y)
 			key="${line%%=*}"
 			name="${key#CONFIG_PKG_}"
-			# Non-lowercase dirs (must match isdconfig.FUTURE_PACKAGES).
 			case "$name" in
 			PACK_EXTRACT) pkg="pack-extract" ;;
 			*) pkg="$(echo "$name" | tr '[:upper:]' '[:lower:]')" ;;
 			esac
-			if [ ! -f "${ROOT}/packages/${pkg}/build.sh" ]; then
-				echo "⚠ resolve-packages: skip CONFIG_PKG_${name}=y (packages/${pkg}/ missing)" >&2
-				continue
-			fi
+			require_recipe "$pkg" "${CFG}: ${line}"
 			add "$pkg"
 			;;
 		esac
@@ -66,15 +79,12 @@ fi
 
 # Auto-dep: nano → ncurses
 if [ -n "${WANT[nano]:-}" ]; then
+	require_recipe ncurses "auto-dep nano→ncurses"
 	add ncurses
 fi
 
-# Drop any mandatory/profile entries that lack a recipe (warn).
 for pkg in "${!WANT[@]}"; do
-	if [ ! -f "${ROOT}/packages/${pkg}/build.sh" ]; then
-		echo "⚠ resolve-packages: omit ${pkg} (no packages/${pkg}/build.sh)" >&2
-		unset "WANT[$pkg]"
-	fi
+	require_recipe "$pkg" "resolved set"
 done
 
 # Stable order: core first, then alpha.
@@ -88,5 +98,9 @@ done
 while IFS= read -r pkg; do
 	[ -n "$pkg" ] && ordered+=("$pkg")
 done < <(printf '%s\n' "${!WANT[@]}" | LC_ALL=C sort)
+
+if [ "${#ordered[@]}" -eq 0 ]; then
+	fail "empty package set for PROFILE=${PROFILE}"
+fi
 
 printf '%s\n' "${ordered[*]}"

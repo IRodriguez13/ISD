@@ -7,10 +7,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TREE="${1:?usage: pack-minix.sh ROOTFS_TREE DISK}"
 DISK="${2:?usage: pack-minix.sh ROOTFS_TREE DISK}"
 IR0_ROOT="${IR0_ROOT:-${ROOT}/../IR0}"
-INJECT="python3 ${IR0_ROOT}/scripts/inject_init_minix.py"
+INJECT="$(bash "${ROOT}/scripts/ir0-public-tool.sh" "${IR0_ROOT}" ir0-minix-inject-path)"
+INJECT="python3 ${INJECT}"
 PROFILE="${PROFILE:-${IR0_PRODUCT_PROFILE:-minimal}}"
 
-if [ ! -f "${IR0_ROOT}/scripts/inject_init_minix.py" ]; then
+if [ ! -f "${IR0_ROOT}/Makefile" ]; then
 	echo "✗ set IR0_ROOT for MINIX packing" >&2
 	exit 1
 fi
