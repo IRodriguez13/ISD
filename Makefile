@@ -54,6 +54,7 @@ ROOTFS_INPUTS := \
 	profiles-check toolchain-check elf-audit uapi-audit personal-data-check \
 	rootfs-check release-check clean distclean help check-kernel \
 	compat-links isd-defconfig isdconfig validate-config resolve-packages image-ext2-home \
+	ai-dev-rules-install \
 	$(addprefix build-,$(RESOLVED_PACKAGES))
 
 all: build
@@ -67,7 +68,7 @@ help:
 	@echo "           fetch headers build toolchain-check elf-audit"
 	@echo "           rootfs-tree rootfs-tar image-minix image rootfs"
 	@echo "           profiles-check personal-data-check rootfs-check release-check"
-	@echo "           clean distclean"
+	@echo "           ai-dev-rules-install clean distclean"
 	@echo "  fetch:     download missing packages/*/dist + unpack packages/*/src"
 	@echo "             (skips when already present — safe to re-run)"
 	@echo "  clean:     remove out/ only (build artefacts); keeps packages/*/src+dist"
@@ -393,3 +394,6 @@ clean:
 distclean: clean
 	@rm -rf $(SYSROOT) packages/*/src
 	@echo "✓ distclean (src/ removed; dist/ tarballs kept)"
+
+ai-dev-rules-install:
+	@python3 scripts/sync_ai_dev_rules.py install

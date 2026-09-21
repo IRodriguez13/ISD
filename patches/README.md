@@ -1,7 +1,7 @@
 # ISD root patches (`patches/`)
 
 > **Last verified:** 2026-09-20  
-> **Policy rule:** `.cursor/rules/isd-upstream-patches-only.mdc`  
+> **Policy rule:** `Documentation/ai_driven_dev/rules/isd-upstream-patches-only.md`  
 > **Full registry:** `Documentation/PATCHES.md`
 
 ## Purpose

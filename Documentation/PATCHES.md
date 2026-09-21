@@ -14,8 +14,8 @@
 | Linux ground truth? | **Baseline:** `scripts/verify-xterm-patch-linux-baseline.sh` (source audit + SIGSEGV on host Linux). Full X11 session repro optional. |
 | Upstream goal? | Every patch here is an **upstream submission candidate** (xterm: Thomas Dickey, `xterm@invisible-island.net`). Retire when upstream merges or version bump includes the fix. |
 
-Agent rule: `.cursor/rules/isd-upstream-patches-only.mdc`  
-IR0 cross-rule: `IR0/.cursor/rules/ir0-no-userspace-patches.mdc` (ISD exception pointer).
+Agent rule: `Documentation/ai_driven_dev/rules/isd-upstream-patches-only.md`  
+IR0 cross-rule: `IR0_ROOT/Documentation/ai_driven_dev/rules/ir0-no-userspace-patches.md`
 
 ---
 

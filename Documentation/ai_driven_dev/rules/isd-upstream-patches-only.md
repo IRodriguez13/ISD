@@ -1,14 +1,14 @@
----
-description: ISD allows root patches/ only for verified upstream source bugs; IR0-first always
-alwaysApply: true
----
+<!-- ISD AI dev rule: isd-upstream-patches-only -->
+<!-- alwaysApply: true -->
+<!-- description: ISD allows root patches/ only for verified upstream source bugs; IR0-first always -->
 
 # ISD — Upstream patches only (`patches/`)
 
 ISD ships **upstream third-party source** (xterm, TinyX, musl, BusyBox, …).
 Default: **do not patch** ports to tolerate IR0 kernel gaps.
 
-Complements IR0 `ir0-no-userspace-patches.mdc` and `ir0-userspace-first-linux-abi.mdc`.
+Complements IR0 `Documentation/ai_driven_dev/rules/ir0-no-userspace-patches.md`
+and `ir0-userspace-first-linux-abi.md` in the companion kernel tree (`IR0_ROOT`).
 
 ## The one exception
 

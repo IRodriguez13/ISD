@@ -19,3 +19,5 @@ packages/*/deps/
 rootfs/local/
 __pycache__/
 *.pyc
+/AGENTS.md
+/.cursor/
