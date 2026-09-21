@@ -105,24 +105,21 @@ Uses:
 This proves the bug class is **not IR0-specific**. Full twm+xterm+Xorg integration
 repro on Linux is optional follow-up (requires X11 session + xterm 411 build).
 
-## Upstream submission draft
+## Upstream submission
 
-**To:** Thomas E. Dickey (xterm)  
-**Subject:** xterm: guard MapSelections against invalid Xt String parameters  
+**Status:** Sent 2026-09-20 to `tdickey@invisible-island.net` (git send-email).
 
-**Body (draft):**
+| Item | Detail |
+|------|--------|
+| Cover Message-ID | `<20260921005946.2129785-1-ivanrwcm25@gmail.com>` |
+| Patch Message-ID | `<20260921005946.2129785-2-ivanrwcm25@gmail.com>` |
+| Resend bundle | `patches/xterm/submission/` |
+| Cover text | `patches/xterm/COVER-LETTER.txt` |
 
-> xterm 411 can SIGSEGV in MapSelections when an Xt action passes a non-NULL but
-> invalid `String` parameter into `isSELECT()` (`strcmp(NonNull(value), "SELECT")`).
-> Observed on IR0 with CR2=0x9, rip in strcmp, ret=MapSelections+0x3e.
-> A minimal reproducer using the same loop logic faults on Linux (attached
-> linux-baseline-repro.c). Suggested fix: reject parameters with address < PAGE_SIZE
-> before calling isSELECT (patch attached).
+Narrative sent: found on hobby kernel IR0 → reproduced bug class on stock Linux
+(`linux-baseline-repro.c`) before submitting client-side guard (4096 threshold).
 
-**Attachments:**
-
-- `0001-button-MapSelections-guard-invalid-selection-param.patch`
-- `linux-baseline-repro.c`
+**Attachments sent:** patch + `linux-baseline-repro.c`
 
 ## Retire criteria
 
