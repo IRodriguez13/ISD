@@ -314,21 +314,32 @@ openrc)
 		ln -sfr "${DEST}/etc/init.d/${svc}" "${DEST}/etc/runlevels/default/${svc}"
 	done < "${PROF_DIR}/services.txt"
 	# Bake OpenRC deptree on the build host (avoids popen/gendepends on IR0 guest).
+	# Prefer unshare+user namespace on bare metal; Docker blocks user ns — chroot as root works.
+	mkdir -p "${DEST}/libexec/rc/cache" "${DEST}/run"
+	_openrc_deptree_cmd='/sbin/openrc sysinit >/dev/null 2>&1; cp -a /run/openrc/. /libexec/rc/cache/'
+	_openrc_deptree_ok=0
 	if command -v unshare >/dev/null 2>&1; then
-		mkdir -p "${DEST}/libexec/rc/cache"
 		if unshare --user --map-root-user --mount --pid --fork --mount-proc \
-			chroot "${DEST}" /bin/sh -c \
-			'/sbin/openrc sysinit >/dev/null 2>&1; cp -a /run/openrc/. /libexec/rc/cache/' \
-			2>/dev/null; then
-			:
+			chroot "${DEST}" /bin/sh -c "${_openrc_deptree_cmd}" 2>/dev/null \
+			&& [ -f "${DEST}/libexec/rc/cache/deptree" ]; then
+			_openrc_deptree_ok=1
 		fi
-		if [ ! -f "${DEST}/libexec/rc/cache/deptree" ]; then
-			echo "✗ openrc deptree cache missing under ${DEST}/libexec/rc/cache" >&2
-			exit 1
-		fi
-		touch "${DEST}/libexec/rc/cache/deptree" \
-			"${DEST}/libexec/rc/cache/softlevel"
 	fi
+	if [ "${_openrc_deptree_ok}" -eq 0 ] && [ "$(id -u)" -eq 0 ] \
+		&& command -v chroot >/dev/null 2>&1; then
+		if chroot "${DEST}" /bin/sh -c "${_openrc_deptree_cmd}" 2>/dev/null \
+			&& [ -f "${DEST}/libexec/rc/cache/deptree" ]; then
+			_openrc_deptree_ok=1
+		fi
+	fi
+	if [ "${_openrc_deptree_ok}" -eq 0 ]; then
+		echo "✗ openrc deptree cache missing under ${DEST}/libexec/rc/cache" >&2
+		echo "  (unshare user namespace and/or chroot openrc sysinit failed)" >&2
+		exit 1
+	fi
+	touch "${DEST}/libexec/rc/cache/deptree" \
+		"${DEST}/libexec/rc/cache/softlevel"
+	unset _openrc_deptree_cmd _openrc_deptree_ok
 	;;
 esac
 

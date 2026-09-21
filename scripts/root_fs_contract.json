@@ -1,0 +1,51 @@
+{
+  "schema": "isd-root-fs-contract/1",
+  "description": "Capabilities any ISD root filesystem backend must expose. Host tooling queries this file — not if/elif on backend name in product code.",
+  "backends": {
+    "minix": {
+      "host_tools": ["inject_init_minix.py", "verify_minix_rootfs.py"],
+      "required": [
+        "directories",
+        "regular_files",
+        "symlinks",
+        "chmod",
+        "chown",
+        "stat",
+        "rename",
+        "unlink",
+        "truncate",
+        "timestamps",
+        "persistence",
+        "executable_files"
+      ],
+      "optional": [],
+      "limits": {
+        "max_name_len": 14
+      }
+    },
+    "ext2": {
+      "host_tools": ["verify_ext2_rootfs.sh"],
+      "required": [
+        "directories",
+        "regular_files",
+        "symlinks",
+        "hardlinks",
+        "chmod",
+        "chown",
+        "stat",
+        "rename",
+        "unlink",
+        "truncate",
+        "timestamps",
+        "persistence",
+        "executable_files",
+        "setuid"
+      ],
+      "optional": ["large_files"],
+      "limits": {
+        "kernel_single_block_group_max_mb": 64,
+        "host_mkfs_no_dir_index": true,
+        "note": "IR0 ext2_disk.c: single block group; linear dir lookup only (^dir_index in pack-ext2-root.sh)"
+      }
+  }
+}

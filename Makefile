@@ -50,7 +50,7 @@ ROOTFS_INPUTS := \
 	$(shell find $(ROOTFS_FIND_DIRS) -type f 2>/dev/null)
 
 .PHONY: all fetch headers build build-packages build-services build-tests \
-	disk rootfs rootfs-tree rootfs-manifest rootfs-tar image-minix image \
+	disk rootfs rootfs-tree rootfs-manifest rootfs-tar image-minix image-ext2-root image \
 	profiles-check toolchain-check elf-audit uapi-audit personal-data-check \
 	rootfs-check release-check clean distclean help check-kernel check-ir0 \
 	check-ir0-interface isd-contracts isd-verify-rootfs \
@@ -68,7 +68,7 @@ help:
 	@echo "  RESOLVED_PACKAGES=$(RESOLVED_PACKAGES)"
 	@echo "  Targets: isd-defconfig isdconfig validate-config resolve-packages"
 	@echo "           fetch headers build toolchain-check elf-audit"
-	@echo "           rootfs-tree rootfs-tar image-minix image rootfs"
+	@echo "           rootfs-tree rootfs-tar image-minix image-ext2-root image rootfs"
 	@echo "           profiles-check personal-data-check rootfs-check release-check"
 	@echo "           ai-dev-rules-install clean distclean"
 	@echo "  fetch:     download missing packages/*/dist + unpack packages/*/src"
@@ -117,10 +117,13 @@ print-artifacts:
 print-artifacts-mk:
 	@ARCH=$(ARCH) PROFILE=$(PROFILE) scripts/print-artifacts.sh | sed \
 		-e 's/^ROOT_DISK=/ROOT_DISK:=/' \
+		-e 's/^ROOT_DISK_EXT2=/ROOT_DISK_EXT2:=/' \
 		-e 's/^HOME_DISK=/HOME_DISK:=/' \
 		-e 's/^ROOTFS=/ROOTFS:=/' \
 		-e 's/^ROOTFS_STAMP=/ROOTFS_STAMP:=/' \
 		-e 's/^REQUIRES_HOME_DISK=/REQUIRES_HOME_DISK:=/' \
+		-e 's/^ROOTFS_PACK=/ROOTFS_PACK:=/' \
+		-e 's/^ROOT_FS=/ROOT_FS:=/' \
 		-e 's/^VARIANT_ID=/VARIANT_ID:=/' \
 		-e 's/^ARCH=/ARCH:=/' \
 		-e 's/^PROFILE=/PROFILE:=/'
@@ -392,10 +395,33 @@ $(STAMP_IMAGE): $(STAMP_ROOTFS) $(DISK) scripts/pack-minix.sh scripts/stamp-run.
 # Primary image path: finished tree → MINIX adapter.
 image-minix: $(STAMP_IMAGE)
 
-# Backward-compatible alias used by the kernel tree.
+# STO-1: host-built EXT2 root (parallel path; product default remains MINIX until STO-4).
+image-ext2-root: $(STAMP_IMAGE_EXT2)
+
+$(STAMP_IMAGE_EXT2): $(STAMP_ROOTFS) scripts/pack-ext2-root.sh \
+		scripts/estimate-rootfs-ext2.sh scripts/stamp-run.sh
+	@chmod +x scripts/pack-ext2-root.sh scripts/estimate-rootfs-ext2.sh
+	@mkdir -p "$(dir $(STAMP_IMAGE_EXT2))" "$(IMAGE_DIR)"
+	@scripts/stamp-run.sh $(STAMP_IMAGE_EXT2) -- \
+		scripts/fs-image.sh populate ext2 "$(ROOTFS_DIR)" "$(DISK_EXT2)"
+
+# Profile-selected root image (ROOT_FS=minix|ext2 in profile.conf or make ROOT_FS=…).
+image-root: $(STAMP_ROOTFS) scripts/fs-image.sh scripts/stamp-run.sh \
+		scripts/root_fs_contract.json
+	@chmod +x scripts/fs-image.sh scripts/fs-backends/*/*.sh 2>/dev/null || true
+	@ROOT_FS="$${ROOT_FS:-$$(grep -E '^ROOT_FS=' profiles/$(PROFILE)/profile.conf 2>/dev/null | tail -1 | cut -d= -f2 || echo minix)}"; \
+	ROOT_FS="$${ROOT_FS:-minix}"; \
+	case "$$ROOT_FS" in minix) STAMP="$(STAMP_IMAGE)"; DISK="$(DISK)" ;; \
+	ext2) STAMP="$(STAMP_IMAGE_EXT2)"; DISK="$(DISK_EXT2)" ;; \
+	*) echo "✗ unknown ROOT_FS=$$ROOT_FS"; exit 2 ;; esac; \
+	mkdir -p "$$(dirname "$$STAMP")" "$(IMAGE_DIR)"; \
+	scripts/stamp-run.sh "$$STAMP" -- \
+		scripts/fs-image.sh populate "$$ROOT_FS" "$(ROOTFS_DIR)" "$$DISK"
+
+# Backward-compatible alias used by the kernel tree (MINIX product default).
 rootfs: image-minix
 
-image: image-minix
+image: image-root
 
 image-ext2-home:
 	@mkdir -p "$(IMAGE_DIR)"

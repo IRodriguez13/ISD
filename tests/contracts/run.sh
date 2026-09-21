@@ -313,6 +313,10 @@ chmod +x scripts/print-artifacts.sh
 out_h=$(ARCH=x86_64 PROFILE=minimal scripts/print-artifacts.sh)
 echo "$out_h" | grep -q '^ROOT_DISK=.*/disk.img$' \
 	&& ok "H minimal ROOT_DISK" || bad "H ROOT_DISK: $out_h"
+echo "$out_h" | grep -q '^ROOT_DISK_EXT2=.*/disk.ext2.img$' \
+	&& ok "H minimal ROOT_DISK_EXT2" || bad "H ROOT_DISK_EXT2: $out_h"
+echo "$out_h" | grep -q '^ROOTFS_PACK=minix$' \
+	&& ok "H minimal ROOTFS_PACK" || bad "H ROOTFS_PACK: $out_h"
 echo "$out_h" | grep -q '^REQUIRES_HOME_DISK=0$' \
 	&& ok "H minimal no home disk" || bad "H REQUIRES_HOME_DISK minimal: $out_h"
 out_hd=$(ARCH=x86_64 PROFILE=desktop scripts/print-artifacts.sh)
@@ -361,6 +365,23 @@ echo " $orc_pkgs " | grep -q ' openrc ' \
 [ -f packages/openrc/build.sh ] && ok "I openrc package recipe" || bad "I openrc build.sh"
 grep -q 'INIT_SYSTEM=' scripts/verify-profile-rootfs.sh \
 	&& ok "I verify-profile-rootfs init audit" || bad "I verify init audit"
+
+# --- J STO ext2 root pack (parallel to MINIX; product default stays minix) ----
+echo "-- J STO ext2 root pack --"
+[ -f scripts/pack-ext2-root.sh ] && [ -f scripts/estimate-rootfs-ext2.sh ] \
+	&& ok "J pack scripts present" || bad "J missing pack-ext2-root/estimate"
+chmod +x scripts/pack-ext2-root.sh scripts/estimate-rootfs-ext2.sh 2>/dev/null || true
+grep -q 'image-ext2-root' Makefile && ok "J image-ext2-root target" || bad "J no image-ext2-root"
+grep -q 'STAMP_IMAGE_EXT2' mk/paths.mk && ok "J ext2 stamp path" || bad "J STAMP_IMAGE_EXT2"
+grep -q 'firstboot.done' scripts/pack-ext2-root.sh \
+	&& ok "J ext2 pack strips firstboot.done" || bad "J ext2 firstboot guard"
+grep -q 'mkfs.ext2.*-d' scripts/pack-ext2-root.sh \
+	&& ok "J ext2 mkfs -d populate" || bad "J ext2 mkfs -d"
+grep -q '^ROOTFS_PACK=minix$' profiles/minimal/profile.conf \
+	&& ok "J profile ROOTFS_PACK default" || bad "J ROOTFS_PACK in profile.conf"
+[ -f scripts/root_fs_contract.json ] && ok "J root_fs_contract.json" || bad "J contract json"
+grep -q 'fs-image.sh populate' Makefile && ok "J fs-image facade" || bad "J fs-image facade"
+[ -f scripts/fs-backends/ext2/populate.sh ] && ok "J ext2 backend populate" || bad "J ext2 backend"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
