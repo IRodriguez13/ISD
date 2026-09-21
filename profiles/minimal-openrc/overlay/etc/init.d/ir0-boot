@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+name="ir0-boot"
+description="IR0 early boot (fsck, mounts, firstboot)"
+
+start()
+{
+	ebegin "Starting ${name}"
+	/sbin/ir0-boot
+	eend $?
+}
+
+stop()
+{
+	return 0
+}

@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+name="logger"
+description="Serial logger"
+
+start()
+{
+	ebegin "Starting ${name}"
+	/sbin/logger-run &
+	eend $?
+}
+
+stop()
+{
+	return 0
+}

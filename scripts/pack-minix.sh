@@ -77,6 +77,40 @@ elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
 	inject_file "${TREE}/sbin/halt" sbin/halt
 	inject_file "${TREE}/sbin/shutdown" sbin/shutdown
 	$INJECT --hardlink "$DISK" sbin/halt sbin/reboot
+elif [ "$INIT_SYSTEM" = "openrc" ]; then
+	inject_file "${TREE}/sbin/openrc-init" sbin/openrc-init
+	inject_file "${TREE}/sbin/orc-shutdn" sbin/orc-shutdn
+	inject_file "${TREE}/sbin/openrc" sbin/openrc
+	inject_file "${TREE}/sbin/openrc-run" sbin/openrc-run
+	inject_file "${TREE}/sbin/ir0-boot" sbin/ir0-boot
+	inject_file "${TREE}/sbin/console-run" sbin/console-run
+	inject_file "${TREE}/sbin/logger-run" sbin/logger-run
+	$INJECT --hardlink "$DISK" sbin/orc-shutdn sbin/halt
+	$INJECT --hardlink "$DISK" sbin/orc-shutdn sbin/reboot
+	$INJECT --hardlink "$DISK" sbin/orc-shutdn sbin/shutdown
+	inject_file "${TREE}/etc/rc.conf" etc/rc.conf
+	inject_file "${TREE}/etc/init.d/ir0-boot" etc/init.d/ir0-boot
+	inject_file "${TREE}/etc/init.d/console" etc/init.d/console
+	inject_file "${TREE}/etc/init.d/logger" etc/init.d/logger
+	inject_file "${TREE}/run/openrc/.keep" run/openrc/.keep
+	inject_file "${TREE}/libexec/rc/cache/deptree" libexec/rc/cache/deptree
+	inject_file "${TREE}/libexec/rc/cache/softlevel" libexec/rc/cache/softlevel
+	while IFS= read -r -d '' f; do
+		rel="${f#${TREE}/}"
+		base="$(basename "$rel")"
+		[ "${#base}" -le 14 ] || continue
+		inject_file "$f" "$rel"
+	done < <(find "${TREE}/libexec/rc/sh" -type f -print0 2>/dev/null)
+	while IFS= read -r -d '' f; do
+		rel="${f#${TREE}/}"
+		base="$(basename "$rel")"
+		[ "${#base}" -le 14 ] || continue
+		inject_file "$f" "$rel"
+	done < <(find "${TREE}/libexec/rc/bin" -type f -print0 2>/dev/null)
+	while IFS= read -r -d '' f; do
+		rel="${f#${TREE}/}"
+		inject_file "$f" "$rel"
+	done < <(find "${TREE}/etc/runlevels" -type l -print0 2>/dev/null)
 fi
 inject_file "${TREE}/sbin/fsck.ir0" sbin/fsck.ir0
 inject_file "${TREE}/sbin/ir0-firstboot" sbin/ir0-firstboot
@@ -336,6 +370,19 @@ elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
 	VERIFY_PATHS+=( \
 		/etc/inittab /etc/init.d/rcS \
 		/sbin/console-run /sbin/logger-run /sbin/halt \
+	)
+elif [ "$INIT_SYSTEM" = "openrc" ]; then
+	VERIFY_PATHS+=( \
+		/sbin/openrc-init /sbin/openrc /etc/rc.conf \
+		/etc/init.d/ir0-boot /sbin/ir0-boot \
+		/sbin/console-run /sbin/logger-run \
+		/libexec/rc/sh/init.sh /libexec/rc/sh/rc-func.sh \
+		/libexec/rc/sh/ssd-daemon.sh \
+		/libexec/rc/bin/fstabinfo /libexec/rc/bin/checkpath \
+		/libexec/rc/bin/mountinfo /libexec/rc/bin/rc-depend \
+		/libexec/rc/cache/deptree /libexec/rc/cache/softlevel \
+		/run/openrc/.keep \
+		/sbin/orc-shutdn /sbin/halt \
 	)
 fi
 

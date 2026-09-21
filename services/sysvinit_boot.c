@@ -115,9 +115,27 @@ static void mount_persistent_home(void)
 	ir0_smoke_tag("EXT2_HOME_MOUNT_FAIL\n");
 }
 
-int main(void)
+static void emit_init_stage_tag(const char *argv0)
+{
+	const char *base = argv0;
+
+	if (argv0)
+	{
+		const char *slash = strrchr(argv0, '/');
+
+		if (slash)
+			base = slash + 1;
+	}
+	if (base && strcmp(base, "ir0-boot") == 0)
+		ir0_smoke_tag("OPENRC_EARLY_OK\n");
+	else
+		ir0_smoke_tag("SYSVINIT_BOOT_OK\n");
+}
+
+int main(int argc, char **argv)
 {
 	char *const argv_rec[] = { "/sbin/ir0-recovery", NULL };
+	const char *self = (argc > 0 && argv) ? argv[0] : NULL;
 
 	if (want_fsck())
 		run_helper("/sbin/fsck.ir0");
@@ -126,7 +144,7 @@ int main(void)
 	run_firstboot_early();
 	try_mount_dennis_src();
 
-	ir0_smoke_tag("SYSVINIT_BOOT_OK\n");
+	emit_init_stage_tag(self);
 
 	if (cmdline_has_recovery())
 	{

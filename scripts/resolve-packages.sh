@@ -27,7 +27,7 @@ if [ -f "$PROF_CONF" ]; then
 fi
 INIT_SYSTEM="${INIT_SYSTEM:-runit}"
 case "$INIT_SYSTEM" in
-runit|sysvinit) ;;
+runit|sysvinit|openrc) ;;
 *) fail "unknown INIT_SYSTEM=${INIT_SYSTEM} in ${PROF_CONF}" ;;
 esac
 INIT_PKG="$INIT_SYSTEM"

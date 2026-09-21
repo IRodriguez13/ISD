@@ -16,6 +16,7 @@ if [ -z "${PRODUCT_OUT:-}" ]; then
 	PRODUCT_OUT="${ROOT}/out/${ARCH}/variants/${_variant_id}/product"
 fi
 RUNIT_BIN="${PRODUCT_OUT}/bin"
+OPENRC_TREE="${PRODUCT_OUT}/openrc-tree"
 STAGE_BIN="${PRODUCT_OUT}/stage-bin"
 STAGE_SCRIPTS="${PRODUCT_OUT}/stage-scripts"
 BUSYBOX="${PRODUCT_OUT}/busybox-full"
@@ -33,7 +34,7 @@ source "${PROF_DIR}/profile.conf"
 INIT_SYSTEM="${INIT_SYSTEM:-runit}"
 USERLAND_BASE="${USERLAND_BASE:-busybox}"
 case "$INIT_SYSTEM" in
-runit|sysvinit) ;;
+runit|sysvinit|openrc) ;;
 *)
 	echo "✗ unknown INIT_SYSTEM=${INIT_SYSTEM} in ${PROF_DIR}/profile.conf" >&2
 	exit 1
@@ -57,6 +58,14 @@ runit)
 	;;
 sysvinit)
 	need_bin "$RUNIT_BIN/init"
+	need_bin "$STAGE_BIN/sysvinit_boot"
+	need_bin "$STAGE_BIN/runit_console_run"
+	need_bin "$STAGE_BIN/runit_logger_run"
+	;;
+openrc)
+	need_bin "$OPENRC_TREE/sbin/openrc-init"
+	need_bin "$OPENRC_TREE/sbin/openrc"
+	need_bin "$OPENRC_TREE/sbin/openrc-run"
 	need_bin "$STAGE_BIN/sysvinit_boot"
 	need_bin "$STAGE_BIN/runit_console_run"
 	need_bin "$STAGE_BIN/runit_logger_run"
@@ -101,6 +110,14 @@ if [ "$INIT_SYSTEM" = "runit" ]; then
 fi
 if [ "$INIT_SYSTEM" = "sysvinit" ]; then
 	mkdir -p "${DEST}/etc/init.d"
+fi
+if [ "$INIT_SYSTEM" = "openrc" ]; then
+	mkdir -p "${DEST}/etc/init.d" "${DEST}/etc/runlevels/sysinit" \
+		"${DEST}/etc/runlevels/default" "${DEST}/etc/runlevels/boot" \
+		"${DEST}/lib" "${DEST}/libexec/rc" \
+		"${DEST}/run/openrc"
+	chmod 0755 "${DEST}/run/openrc"
+	touch "${DEST}/run/openrc/.keep"
 fi
 chmod 01777 "${DEST}/tmp"
 chmod 0755 "${DEST}/run"
@@ -155,6 +172,42 @@ sysvinit)
 	install -m 0755 "$RUNIT_BIN/halt" "${DEST}/sbin/halt"
 	install -m 0755 "$RUNIT_BIN/shutdown" "${DEST}/sbin/shutdown"
 	ln -sf halt "${DEST}/sbin/reboot"
+	;;
+openrc)
+	install -m 0755 "$OPENRC_TREE/sbin/openrc-init" "${DEST}/sbin/init"
+	install -m 0755 "$OPENRC_TREE/sbin/openrc-init" "${DEST}/sbin/openrc-init"
+	# MINIX v1 filenames ≤14 chars — keep canonical guest name orc-shutdn on disk.
+	install -m 0755 "$OPENRC_TREE/sbin/orc-shutdn" "${DEST}/sbin/orc-shutdn"
+	ln -sf orc-shutdn "${DEST}/sbin/openrc-shutdown"
+	for bin in openrc openrc-run rc rc-service rc-update; do
+		[ -f "$OPENRC_TREE/sbin/$bin" ] && \
+			install -m 0755 "$OPENRC_TREE/sbin/$bin" "${DEST}/sbin/$bin"
+	done
+	[ -f "$OPENRC_TREE/bin/rc-status" ] && \
+		install -m 0755 "$OPENRC_TREE/bin/rc-status" "${DEST}/bin/rc-status"
+	cp -a "$OPENRC_TREE/libexec/rc/." "${DEST}/libexec/rc/" 2>/dev/null || true
+	# MINIX v1: rc-functions.sh (15) → rc-func.sh (12) for openrc-run.
+	if [ -f "${DEST}/libexec/rc/sh/rc-functions.sh" ]; then
+		cp "${DEST}/libexec/rc/sh/rc-functions.sh" "${DEST}/libexec/rc/sh/rc-func.sh"
+		find "${DEST}/libexec/rc/sh" -type f -exec sed -i 's/rc-functions\.sh/rc-func.sh/g' {} +
+	fi
+	for pair in start-stop-daemon.sh:ssd-daemon.sh supervise-daemon.sh:sv-daemon.sh; do
+		src="${pair%%:*}"
+		dst="${pair##*:}"
+		if [ -f "${DEST}/libexec/rc/sh/${src}" ]; then
+			cp "${DEST}/libexec/rc/sh/${src}" "${DEST}/libexec/rc/sh/${dst}"
+		fi
+	done
+	find "${DEST}/libexec/rc/sh" -type f -exec sed -i \
+		-e 's/start-stop-daemon\.sh/ssd-daemon.sh/g' \
+		-e 's/supervise-daemon\.sh/sv-daemon.sh/g' {} +
+	# OpenRC init.sh expects group uucp for /run/lock (non-fatal if missing).
+	if [ -f "${DEST}/etc/group" ] && ! grep -q '^uucp:' "${DEST}/etc/group"; then
+		echo 'uucp:x:10:' >> "${DEST}/etc/group"
+	fi
+	ln -sf orc-shutdn "${DEST}/sbin/halt"
+	ln -sf orc-shutdn "${DEST}/sbin/reboot"
+	ln -sf orc-shutdn "${DEST}/sbin/shutdown"
 	;;
 esac
 install -m 0755 "$STAGE_BIN/fsck.ir0" "${DEST}/sbin/fsck.ir0"
@@ -247,6 +300,35 @@ sysvinit)
 	install -m 0755 "$STAGE_BIN/sysvinit_boot" "${DEST}/etc/init.d/rcS"
 	install -m 0755 "$STAGE_BIN/runit_console_run" "${DEST}/sbin/console-run"
 	install -m 0755 "$STAGE_BIN/runit_logger_run" "${DEST}/sbin/logger-run"
+	;;
+openrc)
+	install -m 0755 "$STAGE_BIN/sysvinit_boot" "${DEST}/sbin/ir0-boot"
+	install -m 0755 "$STAGE_BIN/runit_console_run" "${DEST}/sbin/console-run"
+	install -m 0755 "$STAGE_BIN/runit_logger_run" "${DEST}/sbin/logger-run"
+	chmod +x "${DEST}/etc/init.d/"* 2>/dev/null || true
+	ln -sfr "${DEST}/etc/init.d/ir0-boot" "${DEST}/etc/runlevels/sysinit/ir0-boot"
+	while read -r svc; do
+		[[ "$svc" =~ ^#.*$ || -z "$svc" ]] && continue
+		[ "$svc" = "ir0-boot" ] && continue
+		[ -f "${DEST}/etc/init.d/${svc}" ] || continue
+		ln -sfr "${DEST}/etc/init.d/${svc}" "${DEST}/etc/runlevels/default/${svc}"
+	done < "${PROF_DIR}/services.txt"
+	# Bake OpenRC deptree on the build host (avoids popen/gendepends on IR0 guest).
+	if command -v unshare >/dev/null 2>&1; then
+		mkdir -p "${DEST}/libexec/rc/cache"
+		if unshare --user --map-root-user --mount --pid --fork --mount-proc \
+			chroot "${DEST}" /bin/sh -c \
+			'/sbin/openrc sysinit >/dev/null 2>&1; cp -a /run/openrc/. /libexec/rc/cache/' \
+			2>/dev/null; then
+			:
+		fi
+		if [ ! -f "${DEST}/libexec/rc/cache/deptree" ]; then
+			echo "✗ openrc deptree cache missing under ${DEST}/libexec/rc/cache" >&2
+			exit 1
+		fi
+		touch "${DEST}/libexec/rc/cache/deptree" \
+			"${DEST}/libexec/rc/cache/softlevel"
+	fi
 	;;
 esac
 

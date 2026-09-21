@@ -351,6 +351,16 @@ echo " $sysv_pkgs " | grep -q ' sysvinit ' \
 [ -f packages/sysvinit/build.sh ] && ok "I sysvinit package recipe" || bad "I sysvinit build.sh"
 grep -q 'INIT_SYSTEM' scripts/stage-rootfs.sh \
 	&& ok "I stage-rootfs init dispatch" || bad "I stage-rootfs dispatch"
+grep -q '^INIT_SYSTEM=openrc$' profiles/minimal-openrc/profile.conf \
+	&& ok "I minimal-openrc profile" || bad "I minimal-openrc profile.conf"
+orc_pkgs=$(PROFILE=minimal-openrc bash scripts/resolve-packages.sh)
+echo " $orc_pkgs " | grep -q ' openrc ' \
+	&& echo " $orc_pkgs " | grep -qv ' runit ' \
+	&& ok "I minimal-openrc resolves openrc not runit" \
+	|| bad "I openrc resolve: $orc_pkgs"
+[ -f packages/openrc/build.sh ] && ok "I openrc package recipe" || bad "I openrc build.sh"
+grep -q 'INIT_SYSTEM=' scripts/verify-profile-rootfs.sh \
+	&& ok "I verify-profile-rootfs init audit" || bad "I verify init audit"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

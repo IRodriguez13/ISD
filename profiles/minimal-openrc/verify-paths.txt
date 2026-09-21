@@ -1,0 +1,16 @@
+busybox bin/busybox
+openrc sbin/openrc-init
+openrc sbin/orc-shutdn
+openrc sbin/ir0-boot
+openrc etc/rc.conf
+openrc etc/init.d/console
+openrc etc/init.d/logger
+openrc libexec/rc/sh/rc-func.sh
+openrc libexec/rc/sh/ssd-daemon.sh
+openrc libexec/rc/bin/fstabinfo
+openrc libexec/rc/bin/checkpath
+openrc libexec/rc/bin/mountinfo
+openrc libexec/rc/bin/rc-depend
+openrc libexec/rc/cache/deptree
+openrc libexec/rc/cache/softlevel
+openrc run/openrc/.keep

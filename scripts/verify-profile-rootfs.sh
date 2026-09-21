@@ -65,4 +65,38 @@ fi
 if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
-echo "✓ verify-profile-rootfs OK PROFILE=${PROFILE} tree=${TREE}"
+
+# Init implementation must match profile INIT_SYSTEM (auditable; usmang/TUI rely on this).
+PROF_CONF="${ROOT}/profiles/${PROFILE}/profile.conf"
+INIT_SYSTEM=runit
+if [ -f "$PROF_CONF" ]; then
+	INIT_SYSTEM="$(grep -E '^INIT_SYSTEM=' "$PROF_CONF" | tail -1 | cut -d= -f2- | tr -d '[:space:]')"
+fi
+INIT_SYSTEM="${INIT_SYSTEM:-runit}"
+
+if [ ! -x "${TREE}/sbin/init" ]; then
+	err "missing executable sbin/init for INIT_SYSTEM=${INIT_SYSTEM}"
+fi
+
+case "$INIT_SYSTEM" in
+runit)
+	[ -x "${TREE}/sbin/runit" ] || err "runit: missing sbin/runit"
+	[ -x "${TREE}/bin/runit-init" ] || err "runit: missing bin/runit-init"
+	[ -f "${TREE}/etc/runit/1" ] || err "runit: missing etc/runit/1"
+	;;
+sysvinit)
+	[ -f "${TREE}/etc/inittab" ] || err "sysvinit: missing etc/inittab"
+	[ -x "${TREE}/etc/init.d/rcS" ] || err "sysvinit: missing etc/init.d/rcS"
+	;;
+openrc)
+	[ -x "${TREE}/sbin/openrc-init" ] || err "openrc: missing sbin/openrc-init"
+	[ -f "${TREE}/etc/rc.conf" ] || err "openrc: missing etc/rc.conf"
+	[ -x "${TREE}/sbin/ir0-boot" ] || err "openrc: missing sbin/ir0-boot"
+	[ -d "${TREE}/etc/runlevels/default" ] || err "openrc: missing etc/runlevels/default"
+	;;
+*)
+	err "unknown INIT_SYSTEM=${INIT_SYSTEM}"
+	;;
+esac
+
+echo "✓ verify-profile-rootfs OK PROFILE=${PROFILE} INIT_SYSTEM=${INIT_SYSTEM} tree=${TREE}"

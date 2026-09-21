@@ -1,2 +1,4 @@
 busybox bin/busybox
 sysvinit etc/inittab
+sysvinit etc/init.d/rcS
+sysvinit sbin/console-run

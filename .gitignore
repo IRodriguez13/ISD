@@ -5,6 +5,7 @@
 .isdconfig.d/
 packages/*/src/
 packages/*/dist/
+packages/*/.DESTDIR/
 packages/*/build-*/
 packages/*/.build-*.lock
 packages/*/.linux-uapi/

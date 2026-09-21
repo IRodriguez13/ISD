@@ -84,7 +84,7 @@ def read_profile_conf(profile: str) -> dict[str, str]:
 
 def profile_init_system(profile: str) -> str:
     init = read_profile_conf(profile).get("INIT_SYSTEM", "runit")
-    return init if init in ("runit", "sysvinit") else "runit"
+    return init if init in ("runit", "sysvinit", "openrc") else "runit"
 
 
 def core_packages(profile: str) -> tuple[str, ...]:

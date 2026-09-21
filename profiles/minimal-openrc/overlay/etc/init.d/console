@@ -1,0 +1,15 @@
+#!/sbin/openrc-run
+name="console"
+description="Console login"
+
+start()
+{
+	ebegin "Starting ${name}"
+	/sbin/console-run &
+	eend $?
+}
+
+stop()
+{
+	return 0
+}
