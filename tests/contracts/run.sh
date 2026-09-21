@@ -289,6 +289,10 @@ grep -q 'desktop-console' "${ROOT}/profiles/desktop-console/profile.conf" \
 	&& ok "G desktop-console profile exists" || bad "G desktop-console profile"
 [ -f "${ROOT}/profiles/desktop/x-session-clients.txt" ] \
 	&& ok "G x-session clients metadata" || bad "G x-session metadata"
+grep -q 'usr/share/terminfo' scripts/stage-rootfs.sh \
+	&& ok "G stage installs terminfo" || bad "G stage missing terminfo"
+grep -q 'CONFIG_FEATURE_EDITING_ASK_TERMINAL=y' packages/busybox/ir0_full_defconfig \
+	&& ok "G busybox asks terminal for keys" || bad "G busybox ASK_TERMINAL off"
 [ -f "${ROOT}/IR0_ISD_INTERFACE_SUPPORTED" ] \
 	&& ok "G IR0_ISD_INTERFACE_SUPPORTED present" || bad "G interface supported file"
 

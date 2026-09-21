@@ -39,6 +39,9 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$manifest"
 
 if [ "$PROFILE" = "desktop" ] || [ "$PROFILE" = "desktop-console" ]; then
+	if [ ! -f "${TREE}/usr/share/terminfo/x/xterm" ]; then
+		err "desktop: missing usr/share/terminfo/x/xterm (ncurses terminfo)"
+	fi
 	clients="${ROOT}/profiles/desktop/x-session-clients.txt"
 	while IFS= read -r client || [ -n "$client" ]; do
 		client="${client%%#*}"

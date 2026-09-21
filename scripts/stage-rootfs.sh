@@ -344,6 +344,17 @@ if manifest_has xterm; then
 		done
 	fi
 fi
+if manifest_has ncurses; then
+	terminfo_src="${ROOT}/packages/ncurses/prefix/${ARCH}/share/terminfo"
+	if [ ! -d "$terminfo_src" ]; then
+		terminfo_src="${ROOT}/packages/ncurses/prefix/${ARCH}/usr/share/terminfo"
+	fi
+	if [ -d "$terminfo_src" ]; then
+		mkdir -p "${DEST}/usr/share"
+		rm -rf "${DEST}/usr/share/terminfo"
+		cp -a "$terminfo_src" "${DEST}/usr/share/terminfo"
+	fi
+fi
 for xclient in xlogo xcalc xmessage xload; do
 	app_defaults="${ROOT}/packages/${xclient}/prefix/${ARCH}/usr/share/X11/app-defaults"
 	if manifest_has "$xclient" && [ -d "$app_defaults" ]; then

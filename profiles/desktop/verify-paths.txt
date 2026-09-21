@@ -1,0 +1,5 @@
+# Package → required path in staged rootfs (desktop profile).
+busybox bin/busybox
+runit etc/runit
+ncurses usr/share/terminfo/x/xterm
+xterm usr/bin/xterm
