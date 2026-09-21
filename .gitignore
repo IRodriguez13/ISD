@@ -16,7 +16,8 @@ packages/*/sysdeps*.log
 tests/host/userspace_tests
 packages/*/prefix/
 packages/*/deps/
-rootfs/local/
+rootfs/local/*
+!rootfs/local/.keep
 __pycache__/
 *.pyc
 /AGENTS.md
