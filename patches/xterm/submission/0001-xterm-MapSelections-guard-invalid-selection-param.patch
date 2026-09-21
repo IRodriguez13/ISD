@@ -1,0 +1,43 @@
+From: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
+Subject: [PATCH 1/1] xterm: guard MapSelections against invalid Xt String parameters
+
+InvalidSelectionParam() rejects Xt action String values below 4096 before
+isSELECT/strcmp in MapSelections (button.c). Observed CR2~9 on xterm 411.
+
+---
+--- a/button.c
++++ b/button.c
+@@ -2075,6 +2075,20 @@
+ 
+ #define isSELECT(value) (!strcmp(NonNull(value), "SELECT"))
+ 
++/*
++ * Xt action parameters must be valid C strings.  Garbage pointers (small
++ * addresses cast to String) fault inside strcmp(); warn and skip them.
++ */
++static Boolean
++InvalidSelectionParam(String value)
++{
++    if (value == NULL)
++	return False;
++    if ((unsigned long) (char *) value < 4096UL)
++	return True;
++    return False;
++}
++
+ static int
+ DefaultSelection(TScreen *screen)
+ {
+@@ -2133,6 +2147,12 @@
+ 	Boolean map = False;
+ 
+ 	for (j = 0; j < num_params; ++j) {
++	    if (InvalidSelectionParam(params[j])) {
++		if (params[j] != NULL)
++		    xtermWarning("ignoring invalid selection parameter[%u]=%p\n",
++				 (unsigned) j, (void *) params[j]);
++		continue;
++	    }
+ 	    TRACE(("param[%d]:%s\n", j, params[j]));
+ 	    if (isSELECT(params[j])) {
+ 		map = True;

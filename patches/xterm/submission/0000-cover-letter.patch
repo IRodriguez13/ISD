@@ -1,0 +1,23 @@
+From: Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
+Date: Sun, 20 Sep 2026 21:59:00 -0300
+Subject: [PATCH 0/1] xterm: guard MapSelections against invalid Xt String parameters
+
+Thomas,
+
+I first hit this while running xterm 411 on a hobby Unix-like kernel I am
+developing (IR0): twm desktop session, serial log showed userspace SIGSEGV in
+xterm with rip in strcmp and ret in MapSelections (button.c). Symbolization
+pointed at isSELECT(params[j]) with CR2 around 0x9 — a non-NULL garbage String
+pointer, not a kernel uaccess fault.
+
+Before sending a client-side patch, I reproduced the same bug class on a stock
+Linux host (glibc, no IR0 involved): a minimal program using vanilla
+MapSelections/isSELECT logic with param=(char*)9 faults in strcmp the same way
+(see attached linux-baseline-repro.c). That convinced me the gap is in xterm's
+parameter handling, not my kernel.
+
+Attached patch adds InvalidSelectionParam() to skip parameters whose address
+is below 4096, logging xtermWarning instead of crashing.
+
+Iván Ezequiel Rodriguez <ivanrwcm25@gmail.com>
+---
