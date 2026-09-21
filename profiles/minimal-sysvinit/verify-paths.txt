@@ -1,0 +1,2 @@
+busybox bin/busybox
+sysvinit etc/inittab

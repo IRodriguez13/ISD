@@ -9,6 +9,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROFILE="${PROFILE:-minimal}"
 CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
 PROF_PKGS="${ROOT}/profiles/${PROFILE}/packages.txt"
+PROF_CONF="${ROOT}/profiles/${PROFILE}/profile.conf"
 
 fail() {
 	echo "✗ resolve-packages: $*" >&2
@@ -18,6 +19,18 @@ fail() {
 if [ ! -f "$PROF_PKGS" ]; then
 	fail "unknown PROFILE=${PROFILE} (missing ${PROF_PKGS})"
 fi
+
+INIT_SYSTEM=runit
+if [ -f "$PROF_CONF" ]; then
+	# shellcheck disable=SC1090
+	source "$PROF_CONF"
+fi
+INIT_SYSTEM="${INIT_SYSTEM:-runit}"
+case "$INIT_SYSTEM" in
+runit|sysvinit) ;;
+*) fail "unknown INIT_SYSTEM=${INIT_SYSTEM} in ${PROF_CONF}" ;;
+esac
+INIT_PKG="$INIT_SYSTEM"
 
 declare -A WANT=()
 
@@ -37,8 +50,8 @@ require_recipe() {
 	fi
 }
 
-# Core always present.
-for core in busybox runit; do
+# Core always present: userland base + selected init implementation.
+for core in busybox "$INIT_PKG"; do
 	require_recipe "$core" "core"
 	add "$core"
 done
@@ -89,7 +102,7 @@ done
 
 # Stable order: core first, then alpha.
 ordered=()
-for core in busybox runit; do
+for core in busybox "$INIT_PKG"; do
 	if [ -n "${WANT[$core]:-}" ]; then
 		ordered+=("$core")
 		unset "WANT[$core]"

@@ -1,0 +1,7 @@
+# sysvinit inittab — console/logger reuse runit_console_run / runit_logger_run binaries
+::sysinit:/etc/init.d/rcS
+::respawn:/sbin/console-run
+::respawn:/sbin/logger-run
+::ctrlaltdel:/sbin/reboot
+::shutdown:/sbin/halt
+::restart:/sbin/init

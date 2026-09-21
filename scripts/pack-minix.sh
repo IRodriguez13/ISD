@@ -10,6 +10,13 @@ IR0_ROOT="${IR0_ROOT:-${ROOT}/../IR0}"
 INJECT="$(bash "${ROOT}/scripts/ir0-public-tool.sh" "${IR0_ROOT}" ir0-minix-inject-path)"
 INJECT="python3 ${INJECT}"
 PROFILE="${PROFILE:-${IR0_PRODUCT_PROFILE:-minimal}}"
+PROF_CONF="${ROOT}/profiles/${PROFILE}/profile.conf"
+INIT_SYSTEM=runit
+if [ -f "$PROF_CONF" ]; then
+	# shellcheck disable=SC1090
+	source "$PROF_CONF"
+fi
+INIT_SYSTEM="${INIT_SYSTEM:-runit}"
 
 if [ ! -f "${IR0_ROOT}/Makefile" ]; then
 	echo "✗ set IR0_ROOT for MINIX packing" >&2
@@ -60,11 +67,17 @@ done
 $INJECT --owner 0:0 --mode 01777 --chown "$DISK" tmp
 
 inject_file "${TREE}/sbin/init" sbin/init
-inject_file "${TREE}/sbin/runit" sbin/runit
-inject_file "${TREE}/bin/runit-init" bin/runit-init
-inject_file "${TREE}/bin/runsvdir" bin/runsvdir
-inject_file "${TREE}/bin/runsv" bin/runsv
-inject_file "${TREE}/bin/sv" bin/sv
+if [ "$INIT_SYSTEM" = "runit" ]; then
+	inject_file "${TREE}/sbin/runit" sbin/runit
+	inject_file "${TREE}/bin/runit-init" bin/runit-init
+	inject_file "${TREE}/bin/runsvdir" bin/runsvdir
+	inject_file "${TREE}/bin/runsv" bin/runsv
+	inject_file "${TREE}/bin/sv" bin/sv
+elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
+	inject_file "${TREE}/sbin/halt" sbin/halt
+	inject_file "${TREE}/sbin/shutdown" sbin/shutdown
+	$INJECT --hardlink "$DISK" sbin/halt sbin/reboot
+fi
 inject_file "${TREE}/sbin/fsck.ir0" sbin/fsck.ir0
 inject_file "${TREE}/sbin/ir0-firstboot" sbin/ir0-firstboot
 inject_file "${TREE}/sbin/ir0-recovery" sbin/ir0-recovery
@@ -197,11 +210,18 @@ chmod +x "${ROOT}/scripts/busybox_inject_manifest.sh"
 IR0_ROOT="$IR0_ROOT" FASE50_BUSYBOX_BIN="$BUSYBOX" \
 	"${ROOT}/scripts/busybox_inject_manifest.sh" "$DISK" "$BUSYBOX" "$MANIFEST"
 
-inject_file "${TREE}/etc/runit/1" etc/runit/1
-inject_file "${TREE}/etc/runit/2" etc/runit/2
-inject_file "${TREE}/etc/runit/3" etc/runit/3
-inject_file "${TREE}/etc/runit/sv/console/run" etc/runit/sv/console/run
-inject_file "${TREE}/etc/runit/sv/logger/run" etc/runit/sv/logger/run
+if [ "$INIT_SYSTEM" = "runit" ]; then
+	inject_file "${TREE}/etc/runit/1" etc/runit/1
+	inject_file "${TREE}/etc/runit/2" etc/runit/2
+	inject_file "${TREE}/etc/runit/3" etc/runit/3
+	inject_file "${TREE}/etc/runit/sv/console/run" etc/runit/sv/console/run
+	inject_file "${TREE}/etc/runit/sv/logger/run" etc/runit/sv/logger/run
+elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
+	inject_file "${TREE}/etc/inittab" etc/inittab
+	inject_file "${TREE}/etc/init.d/rcS" etc/init.d/rcS
+	inject_file "${TREE}/sbin/console-run" sbin/console-run
+	inject_file "${TREE}/sbin/logger-run" sbin/logger-run
+fi
 
 for f in passwd group issue hostname profile ashrc os-release shells hosts \
 	console.conf ir0-profile resolv.conf man.conf; do
@@ -300,13 +320,27 @@ if [ -f "${TREE}/root/Developer/shebang/busybox-ash.sh" ]; then
 	VERIFY_EXTRA+=(/root/Developer/shebang/busybox-ash.sh)
 fi
 
-python3 "${IR0_ROOT}/scripts/verify_minix_rootfs.py" --gate "$DISK" \
-	/sbin/init /sbin/runit /bin/runsvdir /bin/sh /bin/busybox \
+VERIFY_PATHS=( \
+	/sbin/init /bin/sh /bin/busybox \
 	/sbin/fsck.ir0 /sbin/ir0-firstboot /sbin/ir0-recovery /sbin/mount-root-rw /bin/passwd \
 	/usr/bin/busybox-auth /bin/login /bin/su \
 	/etc/passwd /etc/shadow /etc/group /etc/os-release \
-	/etc/runit/1 /etc/runit/2 /etc/runit/3 \
-	/etc/runit/sv/console/run /etc/runit/sv/logger/run \
+)
+if [ "$INIT_SYSTEM" = "runit" ]; then
+	VERIFY_PATHS+=( \
+		/sbin/runit /bin/runsvdir \
+		/etc/runit/1 /etc/runit/2 /etc/runit/3 \
+		/etc/runit/sv/console/run /etc/runit/sv/logger/run \
+	)
+elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
+	VERIFY_PATHS+=( \
+		/etc/inittab /etc/init.d/rcS \
+		/sbin/console-run /sbin/logger-run /sbin/halt \
+	)
+fi
+
+python3 "${IR0_ROOT}/scripts/verify_minix_rootfs.py" --gate "$DISK" \
+	"${VERIFY_PATHS[@]}" \
 	"${VERIFY_EXTRA[@]}"
 
 # Fresh product images must not carry guest firstboot markers (login brick).

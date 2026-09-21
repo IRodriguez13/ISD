@@ -1,0 +1,3 @@
+# console/logger are respawn lines in etc/inittab (not runit services)
+console
+logger

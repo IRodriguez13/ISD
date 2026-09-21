@@ -40,6 +40,7 @@ build_product()
 {
 	mkdir -p "$PRODUCT_STAGE"
 	cc_one "$PRODUCT_STAGE" runit_stage1 runit_stage1.c
+	cc_one "$PRODUCT_STAGE" sysvinit_boot sysvinit_boot.c
 	cc_one "$PRODUCT_STAGE" runit_stage2 runit_stage2.c
 	cc_one "$PRODUCT_STAGE" runit_stage3 runit_stage3.c
 	cc_one "$PRODUCT_STAGE" runit_console_run runit_console_run.c "$AUTH_LIB" "$KEYMAP_LIB"

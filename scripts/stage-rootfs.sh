@@ -30,6 +30,16 @@ fi
 # shellcheck disable=SC1090
 source "${PROF_DIR}/profile.conf"
 
+INIT_SYSTEM="${INIT_SYSTEM:-runit}"
+USERLAND_BASE="${USERLAND_BASE:-busybox}"
+case "$INIT_SYSTEM" in
+runit|sysvinit) ;;
+*)
+	echo "✗ unknown INIT_SYSTEM=${INIT_SYSTEM} in ${PROF_DIR}/profile.conf" >&2
+	exit 1
+	;;
+esac
+
 need_bin() {
 	if [ ! -f "$1" ]; then
 		echo "✗ missing $1 (run: make build ARCH=$ARCH)" >&2
@@ -37,11 +47,21 @@ need_bin() {
 	fi
 }
 
-need_bin "$RUNIT_BIN/runit"
-need_bin "$RUNIT_BIN/runit-init"
-need_bin "$STAGE_BIN/runit_stage1"
 need_bin "$BUSYBOX"
 need_bin "$BUSYBOX_AUTH"
+case "$INIT_SYSTEM" in
+runit)
+	need_bin "$RUNIT_BIN/runit"
+	need_bin "$RUNIT_BIN/runit-init"
+	need_bin "$STAGE_BIN/runit_stage1"
+	;;
+sysvinit)
+	need_bin "$RUNIT_BIN/init"
+	need_bin "$STAGE_BIN/sysvinit_boot"
+	need_bin "$STAGE_BIN/runit_console_run"
+	need_bin "$STAGE_BIN/runit_logger_run"
+	;;
+esac
 
 rm -rf "$DEST"
 mkdir -p "$DEST"
@@ -72,9 +92,16 @@ mkdir -p \
 	"${DEST}/home" "${DEST}/root" "${DEST}/mnt" \
 	"${DEST}/usr/ken" "${DEST}/usr/ken/games" "${DEST}/usr/share/doom" \
 	"${DEST}/usr/share/man" "${DEST}/usr/share/man/cat7" \
-	"${DEST}/etc/runit/sv/console" "${DEST}/etc/runit/sv/logger" \
-	"${DEST}/etc/service" "${DEST}/etc/skel" \
+	"${DEST}/etc/skel" \
 	"${DEST}/usr/lib/ir0/defaults" "${DEST}/etc/network"
+if [ "$INIT_SYSTEM" = "runit" ]; then
+	mkdir -p \
+		"${DEST}/etc/runit/sv/console" "${DEST}/etc/runit/sv/logger" \
+		"${DEST}/etc/service"
+fi
+if [ "$INIT_SYSTEM" = "sysvinit" ]; then
+	mkdir -p "${DEST}/etc/init.d"
+fi
 chmod 01777 "${DEST}/tmp"
 chmod 0755 "${DEST}/run"
 chmod 0700 "${DEST}/root"
@@ -93,6 +120,8 @@ HOME_URL="https://github.com/IRodriguez13/IR0"
 BUILD_ID="${BUILD_ID}"
 ARCH="${ARCH}"
 PROFILE="${PROFILE}"
+INIT_SYSTEM="${INIT_SYSTEM}"
+USERLAND_BASE="${USERLAND_BASE}"
 EOF
 
 printf '%s\n' "$PROFILE" > "${DEST}/etc/ir0-profile"
@@ -111,13 +140,23 @@ auto lo
 iface lo inet loopback
 EOF
 
-# Product binaries
-install -m 0755 "$RUNIT_BIN/runit-init" "${DEST}/sbin/init"
-install -m 0755 "$RUNIT_BIN/runit" "${DEST}/sbin/runit"
-install -m 0755 "$RUNIT_BIN/runit-init" "${DEST}/bin/runit-init"
-install -m 0755 "$RUNIT_BIN/runsvdir" "${DEST}/bin/runsvdir"
-install -m 0755 "$RUNIT_BIN/runsv" "${DEST}/bin/runsv"
-install -m 0755 "$RUNIT_BIN/sv" "${DEST}/bin/sv"
+# Product binaries — init implementation selected by INIT_SYSTEM
+case "$INIT_SYSTEM" in
+runit)
+	install -m 0755 "$RUNIT_BIN/runit-init" "${DEST}/sbin/init"
+	install -m 0755 "$RUNIT_BIN/runit" "${DEST}/sbin/runit"
+	install -m 0755 "$RUNIT_BIN/runit-init" "${DEST}/bin/runit-init"
+	install -m 0755 "$RUNIT_BIN/runsvdir" "${DEST}/bin/runsvdir"
+	install -m 0755 "$RUNIT_BIN/runsv" "${DEST}/bin/runsv"
+	install -m 0755 "$RUNIT_BIN/sv" "${DEST}/bin/sv"
+	;;
+sysvinit)
+	install -m 0755 "$RUNIT_BIN/init" "${DEST}/sbin/init"
+	install -m 0755 "$RUNIT_BIN/halt" "${DEST}/sbin/halt"
+	install -m 0755 "$RUNIT_BIN/shutdown" "${DEST}/sbin/shutdown"
+	ln -sf halt "${DEST}/sbin/reboot"
+	;;
+esac
 install -m 0755 "$STAGE_BIN/fsck.ir0" "${DEST}/sbin/fsck.ir0"
 install -m 0755 "$STAGE_BIN/ir0_firstboot" "${DEST}/sbin/ir0-firstboot"
 install -m 0755 "$STAGE_BIN/ir0_recovery" "${DEST}/sbin/ir0-recovery"
@@ -192,17 +231,24 @@ if [ -f "$ISD_CFG" ]; then
 	done <"$ISD_CFG"
 fi
 
-install -m 0755 "$STAGE_BIN/runit_stage1" "${DEST}/etc/runit/1"
-install -m 0755 "$STAGE_BIN/runit_stage2" "${DEST}/etc/runit/2"
-install -m 0755 "$STAGE_BIN/runit_stage3" "${DEST}/etc/runit/3"
-install -m 0755 "$STAGE_BIN/runit_console_run" "${DEST}/etc/runit/sv/console/run"
-install -m 0755 "$STAGE_BIN/runit_logger_run" "${DEST}/etc/runit/sv/logger/run"
-
-# Enable services from profile
-while read -r svc; do
-	[[ "$svc" =~ ^#.*$ || -z "$svc" ]] && continue
-	ln -sfr "${DEST}/etc/runit/sv/${svc}" "${DEST}/etc/service/${svc}"
-done < "${PROF_DIR}/services.txt"
+case "$INIT_SYSTEM" in
+runit)
+	install -m 0755 "$STAGE_BIN/runit_stage1" "${DEST}/etc/runit/1"
+	install -m 0755 "$STAGE_BIN/runit_stage2" "${DEST}/etc/runit/2"
+	install -m 0755 "$STAGE_BIN/runit_stage3" "${DEST}/etc/runit/3"
+	install -m 0755 "$STAGE_BIN/runit_console_run" "${DEST}/etc/runit/sv/console/run"
+	install -m 0755 "$STAGE_BIN/runit_logger_run" "${DEST}/etc/runit/sv/logger/run"
+	while read -r svc; do
+		[[ "$svc" =~ ^#.*$ || -z "$svc" ]] && continue
+		ln -sfr "${DEST}/etc/runit/sv/${svc}" "${DEST}/etc/service/${svc}"
+	done < "${PROF_DIR}/services.txt"
+	;;
+sysvinit)
+	install -m 0755 "$STAGE_BIN/sysvinit_boot" "${DEST}/etc/init.d/rcS"
+	install -m 0755 "$STAGE_BIN/runit_console_run" "${DEST}/sbin/console-run"
+	install -m 0755 "$STAGE_BIN/runit_logger_run" "${DEST}/sbin/logger-run"
+	;;
+esac
 
 # Optional packages: ISD_PACKAGES_MANIFEST (resolved set) wins; legacy
 # INSTALL_* from profile.conf remains a fallback. Binary must exist.

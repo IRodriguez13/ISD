@@ -335,6 +335,23 @@ set -e
 	&& ok "H resolve-packages fails on unknown profile" \
 	|| bad "H resolve fallback: rc=$rc_prof out=$bad_prof"
 
+# --- I init system profiles -------------------------------------------------
+echo "-- I init system --"
+grep -q '^INIT_SYSTEM=runit$' profiles/minimal/profile.conf \
+	&& ok "I minimal INIT_SYSTEM=runit" || bad "I minimal init"
+grep -q '^USERLAND_BASE=busybox$' profiles/minimal/profile.conf \
+	&& ok "I minimal USERLAND_BASE" || bad "I minimal userland"
+grep -q '^INIT_SYSTEM=sysvinit$' profiles/minimal-sysvinit/profile.conf \
+	&& ok "I minimal-sysvinit profile" || bad "I minimal-sysvinit profile.conf"
+sysv_pkgs=$(PROFILE=minimal-sysvinit bash scripts/resolve-packages.sh)
+echo " $sysv_pkgs " | grep -q ' sysvinit ' \
+	&& echo " $sysv_pkgs " | grep -qv ' runit ' \
+	&& ok "I minimal-sysvinit resolves sysvinit not runit" \
+	|| bad "I sysvinit resolve: $sysv_pkgs"
+[ -f packages/sysvinit/build.sh ] && ok "I sysvinit package recipe" || bad "I sysvinit build.sh"
+grep -q 'INIT_SYSTEM' scripts/stage-rootfs.sh \
+	&& ok "I stage-rootfs init dispatch" || bad "I stage-rootfs dispatch"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
