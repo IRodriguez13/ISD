@@ -1,0 +1,4 @@
+# Package → required path in staged rootfs (relative to tree root).
+# Used by scripts/verify-profile-rootfs.sh and IR0 usmang verify.
+busybox bin/busybox
+runit etc/runit

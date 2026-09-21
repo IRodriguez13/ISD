@@ -52,7 +52,8 @@ ROOTFS_INPUTS := \
 .PHONY: all fetch headers build build-packages build-services build-tests \
 	disk rootfs rootfs-tree rootfs-manifest rootfs-tar image-minix image \
 	profiles-check toolchain-check elf-audit uapi-audit personal-data-check \
-	rootfs-check release-check clean distclean help check-kernel \
+	rootfs-check release-check clean distclean help check-kernel check-ir0 \
+	check-ir0-interface isd-contracts isd-verify-rootfs \
 	compat-links isd-defconfig isdconfig validate-config resolve-packages image-ext2-home \
 	ai-dev-rules-install \
 	$(addprefix build-,$(RESOLVED_PACKAGES))
@@ -81,6 +82,19 @@ check-kernel:
 		exit 1; \
 	fi
 
+check-ir0-interface:
+	@chmod +x scripts/check-ir0-interface.sh
+	@IR0_ROOT="$(IR0_ROOT)" scripts/check-ir0-interface.sh
+
+check-ir0: check-kernel check-ir0-interface
+
+isd-contracts:
+	@chmod +x tests/contracts/run.sh
+	@./tests/contracts/run.sh
+
+isd-verify-rootfs: rootfs-tree personal-data-check rootfs-check rootfs-manifest
+	@chmod +x scripts/verify-profile-rootfs.sh
+	@PROFILE=$(PROFILE) ARCH=$(ARCH) scripts/verify-profile-rootfs.sh "$(ROOTFS_DIR)"
 isd-defconfig:
 	@chmod +x scripts/isdconfig.py
 	@PROFILE=$(PROFILE) python3 scripts/isdconfig.py defconfig
@@ -342,7 +356,7 @@ rootfs-tar: rootfs-manifest
 		-C "$(ROOTFS_DIR)" -cf "$(ROOTFS_DIR).tar" .
 	@echo "✓ rootfs-tar $(ROOTFS_DIR).tar"
 
-$(DISK): | check-kernel
+$(DISK): | check-ir0
 	@mkdir -p $(dir $(DISK))
 	@echo "  DISK    $(DISK) ($(DISK_MB)M MINIX)"
 	@dd if=/dev/zero of=$(DISK) bs=1M count=$(DISK_MB) status=none
@@ -351,7 +365,7 @@ $(DISK): | check-kernel
 disk: $(DISK)
 
 $(STAMP_IMAGE): $(STAMP_ROOTFS) $(DISK) scripts/pack-minix.sh scripts/stamp-run.sh \
-		| check-kernel
+		| check-ir0
 	@chmod +x scripts/pack-minix.sh scripts/stamp-run.sh
 	@mkdir -p "$(dir $@)" "$(IMAGE_DIR)"
 	@scripts/stamp-run.sh $@ -- env IR0_ROOT="$(IR0_ROOT)" ARCH="$(ARCH)" \
@@ -379,8 +393,8 @@ rootfs-check: rootfs-tree personal-data-check
 	@PROFILE=$(PROFILE) ARCH=$(ARCH) READELF="$(READELF)" \
 		scripts/rootfs-check.sh "$(ROOTFS_DIR)"
 
-release-check: toolchain-check elf-audit uapi-audit profiles-check \
-	rootfs-check rootfs-manifest
+release-check: check-ir0-interface toolchain-check elf-audit uapi-audit profiles-check \
+	isd-contracts isd-verify-rootfs
 	@$(MAKE) -s -C tests/host run
 	@echo "✓ release-check OK PROFILE=$(PROFILE) ARCH=$(ARCH)"
 

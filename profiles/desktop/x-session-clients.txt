@@ -1,0 +1,13 @@
+# X session client package names (ISD-owned metadata for usmang verify).
+twm
+xterm
+xclock
+xeyes
+xlogo
+xcalc
+xmessage
+xsetroot
+xload
+xinit
+xauth
+tinyx

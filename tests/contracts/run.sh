@@ -278,6 +278,20 @@ grep -q 'IMAGE_DIR' mk/paths.mk && grep -q 'STAMP_PACKAGES' mk/paths.mk \
 	&& ok "A paths.mk stamps" || bad "A paths.mk incomplete"
 grep -q '\.isdconfig' .gitignore && ok "B .isdconfig gitignored" || bad "B gitignore"
 
+# --- G: login session auto-X contract ---------------------------------------
+echo "-- G login session --"
+prof="${ROOT}/rootfs/base/etc/profile"
+grep -F 'terminal) _auto_x=0 ;;' "$prof" >/dev/null \
+	&& ok "G ir0-session terminal disables auto-X" || bad "G terminal session"
+grep -F '[ "$_ir0_profile" = "desktop" ] && _auto_x=1' "$prof" >/dev/null \
+	&& ok "G desktop profile enables default auto-X" || bad "G desktop auto-X"
+grep -q 'desktop-console' "${ROOT}/profiles/desktop-console/profile.conf" \
+	&& ok "G desktop-console profile exists" || bad "G desktop-console profile"
+[ -f "${ROOT}/profiles/desktop/x-session-clients.txt" ] \
+	&& ok "G x-session clients metadata" || bad "G x-session metadata"
+[ -f "${ROOT}/IR0_ISD_INTERFACE_SUPPORTED" ] \
+	&& ok "G IR0_ISD_INTERFACE_SUPPORTED present" || bad "G interface supported file"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
