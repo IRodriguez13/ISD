@@ -422,6 +422,9 @@ image-root: $(STAMP_ROOTFS) scripts/fs-image.sh scripts/stamp-run.sh \
 	ext2) STAMP="$(STAMP_IMAGE_EXT2)"; DISK="$(DISK_EXT2)" ;; \
 	*) echo "✗ unknown ROOT_FS=$$ROOT_FS"; exit 2 ;; esac; \
 	mkdir -p "$$(dirname "$$STAMP")" "$(IMAGE_DIR)"; \
+	if [ "$$ROOT_FS" = minix ] && [ ! -f "$$DISK" ]; then \
+		$(MAKE) -s disk; \
+	fi; \
 	scripts/stamp-run.sh "$$STAMP" -- \
 		scripts/fs-image.sh populate "$$ROOT_FS" "$(ROOTFS_DIR)" "$$DISK"
 

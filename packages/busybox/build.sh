@@ -72,18 +72,40 @@ build_variant()
 	make -C "$SRC" CC="$CC" CFLAGS="$bb_cflags" HOSTCFLAGS="$bb_hostcflags" \
 		LDFLAGS="-no-pie" -s -j"$(nproc)"
 	cp -f "$SRC/busybox" "$out"
-	file "$out" | grep -q ELF
+	# Do not `file | grep -q`: pipefail + SIGPIPE is 141 on a first pack.
+	case "$(file -b "$out")" in
+	*ELF*) ;;
+	*)
+		echo "✗ busybox output is not ELF: $(file -b "$out")" >&2
+		exit 1
+		;;
+	esac
 }
 
 (
 	flock 9
 	build_variant "${PKG}/ir0_full.config" "${OUT_DIR}/busybox-full"
-	"${OUT_DIR}/busybox-full" --list | grep -qx sh
-	if "${OUT_DIR}/busybox-full" --list | grep -qxE 'login|su|passwd'; then
+	full_list="$("${OUT_DIR}/busybox-full" --list)"
+	case $'\n'"${full_list}"$'\n' in
+	*$'\n'sh$'\n'*) ;;
+	*)
+		echo "✗ busybox-full missing sh applet" >&2
+		exit 1
+		;;
+	esac
+	case $'\n'"${full_list}"$'\n' in
+	*$'\n'login$'\n'*|*$'\n'su$'\n'*|*$'\n'passwd$'\n'*)
 		echo "✗ privileged applet inside the general binary" >&2
 		exit 1
-	fi
-	echo "✓ busybox-full OK ($("${OUT_DIR}/busybox-full" --list | wc -l) applets)"
+		;;
+	esac
+	applet_n=0
+	while IFS= read -r _; do
+		[ -n "$_" ] && applet_n=$((applet_n + 1))
+	done <<EOF
+${full_list}
+EOF
+	echo "✓ busybox-full OK (${applet_n} applets)"
 
 	build_variant "${PKG}/ir0_auth.config" "${OUT_DIR}/busybox-auth"
 	auth_list="$(mktemp "${TMPDIR:-/tmp}/ir0-bb-auth.XXXXXX")"
