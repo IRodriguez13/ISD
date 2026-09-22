@@ -4,6 +4,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/admin-elevation.sh"
 DEST="${1:?usage: stage-rootfs.sh DEST_DIR}"
 PROFILE="${IR0_PRODUCT_PROFILE:-minimal}"
 ARCH="${ARCH:-x86_64}"
@@ -110,6 +112,8 @@ if [ "$INIT_SYSTEM" = "runit" ]; then
 fi
 if [ "$INIT_SYSTEM" = "sysvinit" ]; then
 	mkdir -p "${DEST}/etc/init.d"
+	# sysvinit PID1 expects /run/initctl fifo (telinit); created at runtime via
+	# mkfifo if missing — do not bake a regular file here (ext2 lacks IFIFO).
 fi
 if [ "$INIT_SYSTEM" = "openrc" ]; then
 	mkdir -p "${DEST}/etc/init.d" "${DEST}/etc/runlevels/sysinit" \
@@ -142,6 +146,8 @@ USERLAND_BASE="${USERLAND_BASE}"
 EOF
 
 printf '%s\n' "$PROFILE" > "${DEST}/etc/ir0-profile"
+resolve_admin_elevation
+printf '%s\n' "$ADMIN_ELEVATION" > "${DEST}/etc/ir0-admin-elevation"
 [ -f "${DEST}/etc/hostname" ] || echo ir0 > "${DEST}/etc/hostname"
 [ -f "${DEST}/etc/hosts" ] || printf '127.0.0.1\tlocalhost ir0\n::1\tlocalhost\n' > "${DEST}/etc/hosts"
 [ -f "${DEST}/etc/shells" ] || printf '/bin/sh\n/bin/ash\n' > "${DEST}/etc/shells"
@@ -226,6 +232,9 @@ if [ -f "$STAGE_BIN/ir0_force_power" ]; then
 	ln -f "${DEST}/bin/poweroff" "${DEST}/bin/halt"
 	ln -f "${DEST}/bin/poweroff" "${DEST}/bin/reboot"
 fi
+rm -f "${DEST}/bin/passwd" "${DEST}/usr/sbin/adduser" \
+	"${DEST}/sbin/adduser" "${DEST}/usr/bin/busybox-auth" \
+	"${DEST}/bin/login" "${DEST}/bin/su"
 install -m 04755 "$STAGE_BIN/ir0_passwd" "${DEST}/bin/passwd"
 install -m 04755 "$STAGE_BIN/ir0_adduser" "${DEST}/usr/sbin/adduser"
 ln -f "${DEST}/usr/sbin/adduser" "${DEST}/sbin/adduser"
@@ -249,6 +258,11 @@ link_applet() {
 	local ap="$1"
 	[ -n "$ap" ] || return 0
 	[ "$ap" = "busybox" ] && return 0
+	# Keep the audited setuid account helpers installed above; replacing one
+	# with a hardlink to busybox-full would silently clear its privilege bit.
+	case "$ap" in
+	passwd|login|su|adduser) return 0 ;;
+	esac
 	# MINIX v1 names are 14 bytes; skip overlong applets (cannot argv0 on disk).
 	if [ "${#ap}" -gt 14 ]; then
 		echo "  SKIP    applet '$ap' (name >14 chars; MINIX v1 limit)" >&2
@@ -267,6 +281,12 @@ while read -r ap; do
 	[ -n "$ap" ] || continue
 	link_applet "$ap" || exit 1
 done <<< "$BB_APPLETS"
+
+# Reassert the security boundary after applet linking.  This also makes a
+# repeated stage deterministic if an older tree contained BusyBox hardlinks.
+chmod 04755 "${DEST}/bin/passwd" "${DEST}/usr/sbin/adduser" \
+	"${DEST}/sbin/adduser" "${DEST}/usr/bin/busybox-auth" \
+	"${DEST}/bin/login" "${DEST}/bin/su"
 
 # Optional applets from the profile-local configuration.
 ISD_CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
@@ -354,10 +374,17 @@ manifest_has() {
 	esac
 }
 
-if [ -f "${STAGE_BIN}/doas" ] && { manifest_has opendoas || [ "${INSTALL_DOAS:-0}" = "1" ]; }; then
+if [ "$ADMIN_PKG" = "opendoas" ] && [ -f "${STAGE_BIN}/doas" ] && manifest_has opendoas; then
 	install -m 04755 "${STAGE_BIN}/doas" "${DEST}/usr/bin/doas"
 	install -m 0440 "${ROOT}/rootfs/base/etc/doas.conf" "${DEST}/etc/doas.conf" 2>/dev/null || \
 		install -m 0440 "${ROOT}/rootfs/etc/doas.conf" "${DEST}/etc/doas.conf"
+	mkdir -p "${DEST}/run/doas"
+fi
+if [ "$ADMIN_PKG" = "sudo" ] && [ -f "${STAGE_BIN}/sudo" ] && manifest_has sudo; then
+	install -m 04755 "${STAGE_BIN}/sudo" "${DEST}/usr/bin/sudo"
+	install -m 0440 "${ROOT}/rootfs/base/etc/sudoers" "${DEST}/etc/sudoers" 2>/dev/null || \
+		install -m 0440 "${ROOT}/rootfs/etc/sudoers" "${DEST}/etc/sudoers"
+	chmod 0440 "${DEST}/etc/sudoers"
 fi
 if [ -f "${STAGE_BIN}/nano" ] && { manifest_has nano || [ "${INSTALL_NANO:-0}" = "1" ]; }; then
 	install -m 0755 "${STAGE_BIN}/nano" "${DEST}/usr/bin/nano"
@@ -602,6 +629,21 @@ if [ "${FSCK_ON_BOOT:-1}" = "0" ]; then
 	printf '1\n' > "${DEST}/etc/ir0-skip-fsck"
 fi
 
+# OpenRC checkpath expects uucp; account policy blocks above may replace group.
+if [ "$INIT_SYSTEM" = "openrc" ]; then
+	if [ -f "${DEST}/etc/group" ] && ! grep -q '^uucp:' "${DEST}/etc/group"; then
+		echo 'uucp:x:10:' >> "${DEST}/etc/group"
+	fi
+	# ash STANDALONE runs md5sum as a builtin; OpenRC's proc test needs exec.
+	INIT_SH="${DEST}/libexec/rc/sh/init.sh"
+	if [ -f "$INIT_SH" ]; then
+		sed -i \
+			's|\$(VAR=a md5sum \$f)|$(VAR=a command md5sum "$f")|g;
+			 s|\$(VAR=b md5sum \$f)|$(VAR=b command md5sum "$f")|g' \
+			"$INIT_SH"
+	fi
+fi
+
 if [ -f "${ROOT}/packages/busybox/bb_status.tsv" ]; then
 	mkdir -p "${DEST}/etc/busybox"
 	install -m 0644 "${ROOT}/packages/busybox/bb_status.tsv" \
@@ -635,6 +677,20 @@ if [ -f "$SETUID_ALLOW" ]; then
 			4*|2*|6*) ;;
 			*) echo "✗ declared setuid missing bit: $path mode=$mode" >&2; exit 1 ;;
 			esac
+			# Host tree is often built unprivileged; ext2 pack fixes root ownership
+			# on disk via debugfs (see pack-ext2-root.sh). chown(2) clears
+			# set-id bits, so restore the validated mode after changing owner.
+			if [ "$(id -u)" -eq 0 ]; then
+				chown 0:0 "$f"
+				chmod "$mode" "$f"
+			fi
+			if [ "$(id -u)" -eq 0 ]; then
+				owner=$(stat -c '%u' "$f")
+				if [ "$owner" != "0" ]; then
+					echo "✗ setuid $path owner uid=$owner (need 0)" >&2
+					exit 1
+				fi
+			fi
 		fi
 	done < "$SETUID_ALLOW"
 	# Fail on unexpected setuid

@@ -6,6 +6,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck disable=SC1091
+source "${ROOT}/scripts/admin-elevation.sh"
 PROFILE="${PROFILE:-minimal}"
 CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
 PROF_PKGS="${ROOT}/profiles/${PROFILE}/packages.txt"
@@ -95,6 +97,33 @@ if [ -n "${WANT[nano]:-}" ]; then
 	require_recipe ncurses "auto-dep nano→ncurses"
 	add ncurses
 fi
+
+# Admin elevation: one tool per profile (doas via opendoas, or gnu sudo).
+normalize_admin_packages() {
+	resolve_admin_elevation
+	local want_admin=0
+	if [ -n "${WANT[opendoas]:-}" ] || [ -n "${WANT[sudo]:-}" ]; then
+		want_admin=1
+	fi
+	# Package inclusion follows packages.txt or explicit .isdconfig overrides —
+	# not profile.conf ADMIN_ELEVATION alone (minimal stays core-only in resolve).
+	if [ -f "$CFG" ]; then
+		if grep -E '^CONFIG_PKG_SUDO=[yY1]' "$CFG" >/dev/null 2>&1 \
+			|| grep -E '^CONFIG_PKG_OPENDOAS=[yY1]' "$CFG" >/dev/null 2>&1; then
+			want_admin=1
+		fi
+		if grep -E '^ADMIN_ELEVATION=' "$CFG" >/dev/null 2>&1; then
+			want_admin=1
+		fi
+	fi
+	unset 'WANT[opendoas]' 'WANT[sudo]'
+	if [ "$want_admin" -eq 1 ]; then
+		require_recipe "$ADMIN_PKG" "ADMIN_ELEVATION=${ADMIN_ELEVATION}"
+		add "$ADMIN_PKG"
+	fi
+}
+
+normalize_admin_packages
 
 for pkg in "${!WANT[@]}"; do
 	require_recipe "$pkg" "resolved set"

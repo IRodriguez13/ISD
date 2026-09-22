@@ -57,10 +57,14 @@ $INJECT --format-large "$DISK"
 
 # Empty dirs first (pseudo-fs mountpoints + firstboot state). MINIX inject
 # creates parents when writing a file; use .keep placeholders.
-for d in var/lib/ir0 var/log tmp dev proc sys heart run run/doas mnt; do
+for d in var/lib/ir0 var/log tmp run run/doas mnt; do
 	mkdir -p "${TREE}/${d}"
 	touch "${TREE}/${d}/.keep"
 	$INJECT "$DISK" --mode 0644 "${TREE}/${d}/.keep" "${d}/.keep"
+done
+# Empty mount points — do not inject files under proc/sys/dev (OpenRC live /proc test).
+for d in dev proc sys heart; do
+	mkdir -p "${TREE}/${d}"
 done
 # Applications such as X create per-user lock files here.  Parent directories
 # synthesized by the injector otherwise keep its default root-only mode.
@@ -137,6 +141,9 @@ $INJECT --hardlink "$DISK" usr/bin/busybox-auth bin/su
 
 if [ -f "${TREE}/usr/bin/doas" ]; then
 	inject_file "${TREE}/usr/bin/doas" usr/bin/doas
+fi
+if [ -f "${TREE}/usr/bin/sudo" ]; then
+	inject_file "${TREE}/usr/bin/sudo" usr/bin/sudo
 fi
 if [ -f "${TREE}/usr/bin/nano" ]; then
 	inject_file "${TREE}/usr/bin/nano" usr/bin/nano
@@ -234,6 +241,9 @@ fi
 if [ -f "${TREE}/etc/doas.conf" ]; then
 	$INJECT "$DISK" --mode 0440 "${TREE}/etc/doas.conf" etc/doas.conf
 fi
+if [ -f "${TREE}/etc/sudoers" ]; then
+	$INJECT "$DISK" --mode 0440 "${TREE}/etc/sudoers" etc/sudoers
+fi
 
 BUSYBOX="${TREE}/bin/busybox"
 PACK_TMP="$(mktemp -d "${TMPDIR:-/tmp}/isd-pack-minix.XXXXXX")"
@@ -291,6 +301,7 @@ fi
 VERIFY_EXTRA=()
 [ -f "${TREE}/usr/bin/nano" ] && VERIFY_EXTRA+=(/usr/bin/nano)
 [ -f "${TREE}/usr/bin/doas" ] && VERIFY_EXTRA+=(/usr/bin/doas)
+[ -f "${TREE}/usr/bin/sudo" ] && VERIFY_EXTRA+=(/usr/bin/sudo)
 [ -f "${TREE}/usr/bin/iv" ] && VERIFY_EXTRA+=(/usr/bin/iv /bin/iv)
 [ -f "${TREE}/usr/bin/pack" ] && VERIFY_EXTRA+=(/usr/bin/pack /bin/pack)
 [ -f "${TREE}/usr/bin/extract" ] && VERIFY_EXTRA+=(/usr/bin/extract /bin/extract)

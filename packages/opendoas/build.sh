@@ -33,6 +33,6 @@ fi
 
 make clean >/dev/null 2>&1 || true
 make -s CC="$CC" CFLAGS="-static -Os -fno-pie" LDFLAGS="-static -no-pie"
-install -m 0755 doas "$OUT_DIR/doas"
+install -m 04755 doas "$OUT_DIR/doas"
 file "$OUT_DIR/doas" | grep -q ELF
 echo "✓ build opendoas OK → $OUT_DIR/doas"

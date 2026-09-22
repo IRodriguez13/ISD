@@ -363,6 +363,12 @@ echo " $orc_pkgs " | grep -q ' openrc ' \
 	&& ok "I minimal-openrc resolves openrc not runit" \
 	|| bad "I openrc resolve: $orc_pkgs"
 [ -f packages/openrc/build.sh ] && ok "I openrc package recipe" || bad "I openrc build.sh"
+grep -E '^proc[[:space:]]+/proc[[:space:]]+proc' profiles/minimal-openrc/overlay/etc/fstab \
+	&& ok "I openrc overlay fstab proc" || bad "I openrc fstab proc entry"
+grep -q '^uucp:' rootfs/base/etc/group \
+	&& ok "I base group uucp" || bad "I base group missing uucp"
+grep -q '04755' packages/opendoas/build.sh \
+	&& ok "I opendoas staged setuid" || bad "I opendoas build mode"
 grep -q 'INIT_SYSTEM=' scripts/verify-profile-rootfs.sh \
 	&& ok "I verify-profile-rootfs init audit" || bad "I verify init audit"
 
@@ -375,6 +381,8 @@ grep -q 'image-ext2-root' Makefile && ok "J image-ext2-root target" || bad "J no
 grep -q 'STAMP_IMAGE_EXT2' mk/paths.mk && ok "J ext2 stamp path" || bad "J STAMP_IMAGE_EXT2"
 grep -q 'firstboot.done' scripts/pack-ext2-root.sh \
 	&& ok "J ext2 pack strips firstboot.done" || bad "J ext2 firstboot guard"
+grep -q 'Mount points must stay empty' scripts/pack-ext2-root.sh \
+	&& ok "J ext2 empty proc mountpoint" || bad "J ext2 proc .keep guard"
 grep -q 'mkfs.ext2.*-d' scripts/pack-ext2-root.sh \
 	&& ok "J ext2 mkfs -d populate" || bad "J ext2 mkfs -d"
 grep -q '^ROOTFS_PACK=minix$' profiles/minimal/profile.conf \

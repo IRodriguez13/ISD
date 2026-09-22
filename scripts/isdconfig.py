@@ -27,12 +27,16 @@ EXTRAS = (
     "NANO",
     "NCURSES",
     "OPENDOAS",
+    "SUDO",
     "TINYCC",
     "GNUMAKE",
     "DOOM",
     "IV",
     "PACK_EXTRACT",
 )
+
+# One admin elevation tool per profile (doas via opendoas, or gnu sudo).
+ADMIN_EXTRAS = ("OPENDOAS", "SUDO")
 
 # BusyBox applet extras — link /bin/<applet> when =y (binary must include applet).
 # short → applet name
@@ -59,6 +63,7 @@ EXTRA_DEFAULTS = {
     "NANO": "n",
     "NCURSES": "n",
     "OPENDOAS": "n",
+    "SUDO": "n",
     "TINYCC": "n",
     "GNUMAKE": "n",
     "DOOM": "n",
@@ -146,6 +151,9 @@ def write_cfg(path: Path, data: dict[str, str], profile: str = "minimal") -> Non
             short = key[len("CONFIG_APPLET_") :]
             val = data.get(key, APPLET_DEFAULTS.get(short, "n"))
         lines.append(f"{key}={val}")
+    admin = data.get("ADMIN_ELEVATION", "").strip().lower()
+    if admin in ("doas", "sudo"):
+        lines.extend(["", f"ADMIN_ELEVATION={admin}"])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -163,6 +171,29 @@ def ensure_defaults(data: dict[str, str], profile: str = "minimal") -> dict[str,
 
 def pkg_enabled(data: dict[str, str], short: str) -> bool:
     return data.get(f"CONFIG_PKG_{short}", "n").lower() in ("y", "yes", "1")
+
+
+def admin_elevation_from_data(data: dict[str, str], profile: str) -> str:
+    """Effective admin tool: profile.conf default overridden by .isdconfig."""
+    tool = read_profile_conf(profile).get("ADMIN_ELEVATION", "doas")
+    override = data.get("ADMIN_ELEVATION", "").strip().lower()
+    if override in ("doas", "sudo"):
+        tool = override
+    if pkg_enabled(data, "SUDO"):
+        tool = "sudo"
+    elif pkg_enabled(data, "OPENDOAS") and override != "sudo":
+        tool = "doas"
+    return tool if tool in ("doas", "sudo") else "doas"
+
+
+def apply_admin_exclusion(data: dict[str, str], enabled: str) -> None:
+    """Keep at most one CONFIG_PKG_{OPENDOAS,SUDO}=y."""
+    if enabled not in ADMIN_EXTRAS:
+        return
+    for short in ADMIN_EXTRAS:
+        key = f"CONFIG_PKG_{short}"
+        data[key] = "y" if short == enabled else "n"
+    data["ADMIN_ELEVATION"] = "sudo" if enabled == "SUDO" else "doas"
 
 
 def applet_enabled(data: dict[str, str], short: str) -> bool:
@@ -231,6 +262,12 @@ def refuse_enable_pkg(short: str, profile: str = "minimal") -> str | None:
 def validate_enabled_pkgs(data: dict[str, str], profile: str = "minimal") -> list[str]:
     """Return errors for enabled extras that cannot be built."""
     errors: list[str] = []
+    enabled_admin = [s for s in ADMIN_EXTRAS if pkg_enabled(data, s)]
+    if len(enabled_admin) > 1:
+        errors.append(
+            f"✗ admin tools are mutually exclusive: {', '.join(enabled_admin)} "
+            f"(pick doas or sudo via ADMIN_ELEVATION / usmang)"
+        )
     for short in EXTRAS:
         if not pkg_enabled(data, short):
             continue
@@ -329,6 +366,8 @@ def cmd_set(path: Path, profile: str, assignments: list[str]) -> int:
         if kind == "PKG":
             key = f"CONFIG_PKG_{short}"
             data[key] = val
+            if val == "y" and short in ADMIN_EXTRAS:
+                apply_admin_exclusion(data, short)
             if val == "y" and short in AUTO_DEPS:
                 for dep in AUTO_DEPS[short]:
                     data[f"CONFIG_PKG_{dep}"] = "y"
@@ -491,6 +530,8 @@ def cmd_menu(path: Path, profile: str) -> int:
                     out.write("    configuration unchanged for this option\n")
                     out.flush()
                     data[key] = cur
+            if data[key] == "y" and short in ADMIN_EXTRAS:
+                apply_admin_exclusion(data, short)
             if data[key] == "y" and short in AUTO_DEPS:
                 for dep in AUTO_DEPS[short]:
                     data[f"CONFIG_PKG_{dep}"] = "y"

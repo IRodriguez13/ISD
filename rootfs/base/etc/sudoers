@@ -1,0 +1,11 @@
+# GNU sudo policy for IR0/Unix (minimal + desktop).
+# Owner must be root; mode 0440 (visudo-style checks apply at runtime).
+#
+# First-boot puts the initial user in group wheel. That same login password
+# authenticates sudo.
+
+Defaults env_reset
+Defaults secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
+
+%sudo ALL=(ALL:ALL) ALL
+%wheel ALL=(ALL:ALL) ALL

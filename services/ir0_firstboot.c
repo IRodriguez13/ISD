@@ -322,6 +322,35 @@ static int apply_seed_file(const char *path)
 	return write_accounts(user, host, hash, wheel, lock_root, recovery);
 }
 
+static void admin_tool_label(char *buf, size_t len)
+{
+	FILE *f;
+	char line[32];
+
+	if (len == 0)
+		return;
+	buf[0] = '\0';
+	f = fopen("/etc/ir0-admin-elevation", "r");
+	if (f)
+	{
+		if (fgets(line, sizeof(line), f))
+		{
+			line[strcspn(line, "\r\n")] = '\0';
+			if (line[0] != '\0' && strcmp(line, "sudo") == 0)
+			{
+				fclose(f);
+				snprintf(buf, len, "sudo");
+				return;
+			}
+		}
+		fclose(f);
+	}
+	if (access("/usr/bin/sudo", X_OK) == 0)
+		snprintf(buf, len, "sudo");
+	else
+		snprintf(buf, len, "doas");
+}
+
 static int wizard_interactive(void)
 {
 	char user[IR0_AUTH_NAME_MAX];
@@ -329,10 +358,13 @@ static int wizard_interactive(void)
 	char pw1[IR0_AUTH_HASH_MAX];
 	char pw2[IR0_AUTH_HASH_MAX];
 	char hash[IR0_AUTH_HASH_MAX];
+	char admin_tool[16];
+
+	admin_tool_label(admin_tool, sizeof(admin_tool));
 
 	puts("\nWelcome to IR0/Unix\n");
 	puts("Create your account on first boot.");
-	puts("This password is also used for admin tasks via doas.\n");
+	printf("This password is also used for admin tasks via %s.\n\n", admin_tool);
 
 	for (;;)
 	{
@@ -414,7 +446,7 @@ static int wizard_interactive(void)
 		return -1;
 
 	printf("\nAccount '%s' created. You can log in now.\n", user);
-	printf("Admin: doas <command> (same password).\n\n");
+	printf("Admin: %s <command> (same password).\n\n", admin_tool);
 	return 0;
 }
 
