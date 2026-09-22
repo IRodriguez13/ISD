@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""isdctl — ISD config/plan CLI.
+
+Same resolver as ``make plan`` / ``isdconfig.py``. Does not fetch, compile,
+or pack images. The TUI must call this (or ``make plan``), never build.
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from isdconfig import main
+
+if __name__ == "__main__":
+    sys.exit(main())

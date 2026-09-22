@@ -391,6 +391,102 @@ grep -q '^ROOTFS_PACK=minix$' profiles/minimal/profile.conf \
 grep -q 'fs-image.sh populate' Makefile && ok "J fs-image facade" || bad "J fs-image facade"
 [ -f scripts/fs-backends/ext2/populate.sh ] && ok "J ext2 backend populate" || bad "J ext2 backend"
 
+# --- K: config-truth (fail-closed + immutable plan + no SKIP-success) --------
+echo "-- K config-truth --"
+chmod +x scripts/isdctl 2>/dev/null || true
+[ -x scripts/isdctl ] && ok "K isdctl present" || bad "K missing isdctl"
+grep -q '^plan:' Makefile && ok "K make plan target" || bad "K no make plan"
+grep -q 'isd-build.json' scripts/stage-rootfs.sh \
+	&& ok "K stage writes /etc/isd-build.json" || bad "K no guest manifest"
+# Requested blocked packages must fail the build, not SKIP; exit 0.
+if grep -A2 'blocked-by-package|blocked-by-kernel-ABI' Makefile \
+	| grep -q 'exit 0'; then
+	bad "K blocked package still SKIP-success"
+else
+	grep -A2 'blocked-by-package|blocked-by-kernel-ABI' Makefile \
+		| grep -q 'exit 1' \
+		&& ok "K blocked package fails closed" \
+		|| bad "K blocked package rule missing"
+fi
+# Missing INIT_SYSTEM is an error (no silent runit).
+BROKEN="$TMP/broken-init"
+mkdir -p "$BROKEN/profiles/broken" "$BROKEN/packages/busybox"
+printf 'USERLAND_BASE=busybox\n' >"$BROKEN/profiles/broken/profile.conf"
+printf 'busybox\n' >"$BROKEN/profiles/broken/packages.txt"
+: >"$BROKEN/packages/busybox/build.sh"
+# Re-run resolver from a copy of the script against a fake tree is heavy;
+# instead assert the live resolver rejects a missing INIT_SYSTEM via python.
+set +e
+out_init=$(PROFILE=does-not-exist python3 scripts/isdconfig.py --profile does-not-exist plan 2>&1)
+rc_init=$?
+set -e
+[ "$rc_init" -ne 0 ] && echo "$out_init" | grep -qi 'unknown profile' \
+	&& ok "K plan fails on unknown profile" \
+	|| bad "K plan unknown: rc=$rc_init out=$out_init"
+
+# Inject a temp profile with bad INIT_SYSTEM under the real tree? Avoid
+# polluting profiles/. Use a python snippet against the module.
+set +e
+out_bad=$(python3 - <<'PY'
+import os, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "scripts")
+import isdconfig
+isdconfig.ROOT = Path(tempfile.mkdtemp())
+prof = isdconfig.ROOT / "profiles" / "bogus"
+prof.mkdir(parents=True)
+(prof / "profile.conf").write_text("INIT_SYSTEM=foobar\nROOT_FS=minix\n", encoding="utf-8")
+try:
+    isdconfig.profile_init_system("bogus")
+except isdconfig.ConfigError as exc:
+    print(exc)
+    sys.exit(2)
+print("fell-through")
+sys.exit(0)
+PY
+)
+rc_bad=$?
+set -e
+[ "$rc_bad" -ne 0 ] && echo "$out_bad" | grep -qi 'unsupported INIT_SYSTEM' \
+	&& ok "K INIT_SYSTEM=foobar fails closed" \
+	|| bad "K INIT_SYSTEM fallback: rc=$rc_bad out=$out_bad"
+
+CFGK="$TMP/isdconfig-k"
+PROFILE=minimal ISD_CONFIG="$CFGK" python3 scripts/isdconfig.py --config "$CFGK" defconfig --force
+plan_json=$(PROFILE=minimal ISD_CONFIG="$CFGK" python3 scripts/isdconfig.py \
+	--config "$CFGK" --profile minimal plan --json)
+echo "$plan_json" | python3 -c '
+import json,sys
+p=json.load(sys.stdin)
+need=("preset","arch","root_fs","init","userland","libc","admin","packages","config_hash","status")
+missing=[k for k in need if k not in p]
+assert not missing, missing
+assert p["preset"]=="minimal"
+assert p["init"]=="runit"
+assert p["root_fs"]=="minix"
+assert p["status"]=="buildable"
+assert "busybox" in p["packages"]
+assert "runit" in p["packages"]
+' && ok "K plan JSON contract" || bad "K plan JSON: $plan_json"
+
+plan_openrc=$(PROFILE=minimal-openrc python3 scripts/isdconfig.py --profile minimal-openrc plan --json)
+echo "$plan_openrc" | python3 -c '
+import json,sys
+p=json.load(sys.stdin)
+assert p["init"]=="openrc"
+assert "openrc" in p["packages"]
+assert "runit" not in p["packages"]
+assert p["status"]=="buildable"
+' && ok "K plan openrc is not runit" || bad "K plan openrc: $plan_openrc"
+
+ctl_out=$(PROFILE=minimal scripts/isdctl --profile minimal plan --json)
+echo "$ctl_out" | python3 -c '
+import json,sys
+p=json.load(sys.stdin)
+assert p["status"]=="buildable"
+assert p["init"]=="runit"
+' && ok "K isdctl plan matches resolver" || bad "K isdctl: $ctl_out"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

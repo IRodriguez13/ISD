@@ -33,7 +33,10 @@ fi
 # shellcheck disable=SC1090
 source "${PROF_DIR}/profile.conf"
 
-INIT_SYSTEM="${INIT_SYSTEM:-runit}"
+if [ -z "${INIT_SYSTEM:-}" ]; then
+	echo "✗ missing INIT_SYSTEM in ${PROF_DIR}/profile.conf" >&2
+	exit 1
+fi
 USERLAND_BASE="${USERLAND_BASE:-busybox}"
 case "$INIT_SYSTEM" in
 runit|sysvinit|openrc) ;;
@@ -148,6 +151,13 @@ EOF
 printf '%s\n' "$PROFILE" > "${DEST}/etc/ir0-profile"
 resolve_admin_elevation
 printf '%s\n' "$ADMIN_ELEVATION" > "${DEST}/etc/ir0-admin-elevation"
+# Immutable guest manifest: same resolver output as `make plan` / `isdctl plan`.
+if ! PROFILE="${PROFILE}" ARCH="${ARCH}" \
+	python3 "${ROOT}/scripts/isdconfig.py" --profile "${PROFILE}" plan --json \
+	> "${DEST}/etc/isd-build.json"; then
+	echo "✗ failed to write ${DEST}/etc/isd-build.json" >&2
+	exit 1
+fi
 [ -f "${DEST}/etc/hostname" ] || echo ir0 > "${DEST}/etc/hostname"
 [ -f "${DEST}/etc/hosts" ] || printf '127.0.0.1\tlocalhost ir0\n::1\tlocalhost\n' > "${DEST}/etc/hosts"
 [ -f "${DEST}/etc/shells" ] || printf '/bin/sh\n/bin/ash\n' > "${DEST}/etc/shells"

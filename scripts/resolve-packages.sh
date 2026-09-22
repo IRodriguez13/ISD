@@ -22,12 +22,16 @@ if [ ! -f "$PROF_PKGS" ]; then
 	fail "unknown PROFILE=${PROFILE} (missing ${PROF_PKGS})"
 fi
 
-INIT_SYSTEM=runit
-if [ -f "$PROF_CONF" ]; then
-	# shellcheck disable=SC1090
-	source "$PROF_CONF"
+if [ ! -f "$PROF_CONF" ]; then
+	fail "unknown PROFILE=${PROFILE} (missing ${PROF_CONF})"
 fi
-INIT_SYSTEM="${INIT_SYSTEM:-runit}"
+# Fail closed: never invent runit when the profile omitted INIT_SYSTEM.
+unset INIT_SYSTEM
+# shellcheck disable=SC1090
+source "$PROF_CONF"
+if [ -z "${INIT_SYSTEM:-}" ]; then
+	fail "missing INIT_SYSTEM in ${PROF_CONF}"
+fi
 case "$INIT_SYSTEM" in
 runit|sysvinit|openrc) ;;
 *) fail "unknown INIT_SYSTEM=${INIT_SYSTEM} in ${PROF_CONF}" ;;

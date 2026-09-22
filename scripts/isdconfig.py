@@ -2,22 +2,34 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """ISD package extras + applet extras (.isdconfig) — stdlib only.
 
-Commands: defconfig | show | set KEY=VAL | validate | menu
+Commands: defconfig | show | set KEY=VAL | validate | plan | menu
 
 make isdconfig → interactive menu (toggle y/n, save, validate).
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CFG_DIR = ROOT / ".isdconfig.d"
 
-# Always-on core package keys (profile selects init: runit | sysvinit).
+# Always-on core package keys (profile selects init: runit | sysvinit | openrc).
 CORE_BUSYBOX = "BUSYBOX"
+SUPPORTED_INIT_SYSTEMS = frozenset({"runit", "sysvinit", "openrc"})
+SUPPORTED_ROOT_FS = frozenset({"minix", "ext2"})
+SUPPORTED_ADMIN = frozenset({"doas", "sudo"})
+SUPPORTED_USERLAND = frozenset({"busybox"})
+SUPPORTED_LIBC = frozenset({"musl"})
+
+
+class ConfigError(ValueError):
+    """Invalid or unsupported profile/config — fail closed, no silent fallback."""
 
 # Legacy alias — validate/menu use core_packages(profile) instead.
 FORBIDDEN_DISABLE = ("BUSYBOX", "RUNIT")
@@ -87,9 +99,45 @@ def read_profile_conf(profile: str) -> dict[str, str]:
     return data
 
 
+def profile_exists(profile: str) -> bool:
+    return (ROOT / "profiles" / profile / "profile.conf").is_file()
+
+
 def profile_init_system(profile: str) -> str:
-    init = read_profile_conf(profile).get("INIT_SYSTEM", "runit")
-    return init if init in ("runit", "sysvinit", "openrc") else "runit"
+    if not profile_exists(profile):
+        raise ConfigError(f"unknown profile {profile}")
+    init = read_profile_conf(profile).get("INIT_SYSTEM", "").strip()
+    if not init:
+        raise ConfigError(f"profile {profile}: missing INIT_SYSTEM")
+    if init not in SUPPORTED_INIT_SYSTEMS:
+        raise ConfigError(f"profile {profile}: unsupported INIT_SYSTEM={init}")
+    return init
+
+
+def profile_root_fs(profile: str) -> str:
+    if not profile_exists(profile):
+        raise ConfigError(f"unknown profile {profile}")
+    conf = read_profile_conf(profile)
+    root_fs = (conf.get("ROOT_FS") or conf.get("ROOTFS_PACK") or "").strip()
+    if not root_fs:
+        raise ConfigError(f"profile {profile}: missing ROOT_FS")
+    if root_fs not in SUPPORTED_ROOT_FS:
+        raise ConfigError(f"profile {profile}: unsupported ROOT_FS={root_fs}")
+    return root_fs
+
+
+def profile_userland(profile: str) -> str:
+    userland = read_profile_conf(profile).get("USERLAND_BASE", "busybox").strip() or "busybox"
+    if userland not in SUPPORTED_USERLAND:
+        raise ConfigError(f"profile {profile}: unsupported USERLAND_BASE={userland}")
+    return userland
+
+
+def profile_libc(profile: str) -> str:
+    libc = read_profile_conf(profile).get("LIBC", "musl").strip() or "musl"
+    if libc not in SUPPORTED_LIBC:
+        raise ConfigError(f"profile {profile}: unsupported LIBC={libc}")
+    return libc
 
 
 def core_packages(profile: str) -> tuple[str, ...]:
@@ -183,7 +231,11 @@ def admin_elevation_from_data(data: dict[str, str], profile: str) -> str:
         tool = "sudo"
     elif pkg_enabled(data, "OPENDOAS") and override != "sudo":
         tool = "doas"
-    return tool if tool in ("doas", "sudo") else "doas"
+    if tool not in SUPPORTED_ADMIN:
+        raise ConfigError(
+            f"profile {profile}: unsupported ADMIN_ELEVATION={tool}"
+        )
+    return tool
 
 
 def apply_admin_exclusion(data: dict[str, str], enabled: str) -> None:
@@ -220,8 +272,6 @@ def find_doom_iwad() -> Path | None:
         if iwad and Path(iwad).is_file():
             return Path(iwad)
         return None
-    import subprocess
-
     try:
         proc = subprocess.run(
             ["bash", str(script)],
@@ -380,6 +430,9 @@ def cmd_set(path: Path, profile: str, assignments: list[str]) -> int:
 
 
 def cmd_validate(path: Path, profile: str) -> int:
+    if not profile_exists(profile):
+        print(f"✗ unknown profile {profile}", file=sys.stderr)
+        return 2
     data = ensure_defaults(parse_cfg(path), profile)
     errors: list[str] = []
 
@@ -418,6 +471,102 @@ def cmd_validate(path: Path, profile: str) -> int:
 
     print(f"✓ isdconfig validate OK PROFILE={profile}")
     return 0
+
+
+def resolved_packages(profile: str, path: Path) -> list[str]:
+    env = os.environ.copy()
+    env["PROFILE"] = profile
+    env["ISD_CONFIG"] = str(path)
+    script = ROOT / "scripts" / "resolve-packages.sh"
+    proc = subprocess.run(
+        ["bash", str(script)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "resolve-packages failed").strip()
+        raise ConfigError(err)
+    return [p for p in proc.stdout.split() if p]
+
+
+def build_plan(profile: str, path: Path, arch: str | None = None) -> dict:
+    if not profile_exists(profile):
+        raise ConfigError(f"unknown profile {profile}")
+    data = ensure_defaults(parse_cfg(path), profile)
+    errors = validate_enabled_pkgs(data, profile)
+    init = profile_init_system(profile)
+    root_fs = profile_root_fs(profile)
+    userland = profile_userland(profile)
+    libc = profile_libc(profile)
+    admin = admin_elevation_from_data(data, profile)
+    packages = resolved_packages(profile, path)
+    missing = []
+    for pkg in packages:
+        if not (ROOT / "packages" / pkg / "build.sh").is_file():
+            missing.append(pkg)
+    arch = arch or os.environ.get("ARCH", "x86_64")
+    payload = {
+        "preset": profile,
+        "arch": arch,
+        "root_fs": root_fs,
+        "init": init,
+        "userland": userland,
+        "libc": libc,
+        "admin": admin,
+        "packages": packages,
+        "unavailable": missing,
+        "errors": errors,
+        "status": "buildable" if not errors and not missing else "invalid",
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:16]
+    payload["config_hash"] = digest
+    return payload
+
+
+def format_plan(plan: dict) -> str:
+    pkgs = "\n".join(f"  {p}" for p in plan.get("packages") or []) or "  (none)"
+    missing = plan.get("unavailable") or []
+    errors = plan.get("errors") or []
+    lines = [
+        "ISD build plan",
+        "─────────────────────────────────────────",
+        f"Preset:       {plan.get('preset')}",
+        f"Arch:         {plan.get('arch')}",
+        f"Root FS:      {plan.get('root_fs')}",
+        f"Init:         {plan.get('init')}",
+        f"Userland:     {plan.get('userland')}",
+        f"libc:         {plan.get('libc')}",
+        f"Admin:        {plan.get('admin')}",
+        "",
+        "Packages resolved:",
+        pkgs,
+        "",
+        f"Unavailable:  {', '.join(missing) if missing else 'none'}",
+        f"Config hash:  {plan.get('config_hash')}",
+        f"Status:       {plan.get('status')}",
+    ]
+    if errors:
+        lines.append("Errors:")
+        lines.extend(f"  {e}" for e in errors)
+    return "\n".join(lines) + "\n"
+
+
+def cmd_plan(path: Path, profile: str, as_json: bool) -> int:
+    try:
+        plan = build_plan(profile, path)
+    except ConfigError as exc:
+        print(f"✗ plan: {exc}", file=sys.stderr)
+        return 2
+    if as_json:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+    else:
+        print(format_plan(plan), end="")
+    return 0 if plan.get("status") == "buildable" else 1
 
 
 def _prompt_yn(inp, out, prompt: str, current: str) -> str:
@@ -592,21 +741,31 @@ def main(argv: list[str] | None = None) -> int:
     p_set = sub.add_parser("set", help="set CONFIG_PKG_* / CONFIG_APPLET_*=y|n")
     p_set.add_argument("assignments", nargs="+", help="KEY=VAL …")
     sub.add_parser("validate", help="validate config against recipes")
+    p_plan = sub.add_parser("plan", help="print immutable build plan (does not build)")
+    p_plan.add_argument(
+        "--json", action="store_true", help="emit machine-readable plan"
+    )
     sub.add_parser("menu", help="interactive extras menu (TTY)")
 
     args = ap.parse_args(argv)
     path = cfg_path(args.config, args.profile)
 
-    if args.cmd == "defconfig":
-        return cmd_defconfig(path, args.profile, args.force)
-    if args.cmd == "show":
-        return cmd_show(path, args.profile)
-    if args.cmd == "set":
-        return cmd_set(path, args.profile, args.assignments)
-    if args.cmd == "validate":
-        return cmd_validate(path, args.profile)
-    if args.cmd == "menu":
-        return cmd_menu(path, args.profile)
+    try:
+        if args.cmd == "defconfig":
+            return cmd_defconfig(path, args.profile, args.force)
+        if args.cmd == "show":
+            return cmd_show(path, args.profile)
+        if args.cmd == "set":
+            return cmd_set(path, args.profile, args.assignments)
+        if args.cmd == "validate":
+            return cmd_validate(path, args.profile)
+        if args.cmd == "plan":
+            return cmd_plan(path, args.profile, args.json)
+        if args.cmd == "menu":
+            return cmd_menu(path, args.profile)
+    except ConfigError as exc:
+        print(f"✗ {exc}", file=sys.stderr)
+        return 2
     ap.error(f"unknown command {args.cmd}")
     return 2
 

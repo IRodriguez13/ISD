@@ -55,6 +55,7 @@ ROOTFS_INPUTS := \
 	rootfs-check release-check clean distclean help check-kernel check-ir0 \
 	check-ir0-interface isd-contracts isd-verify-rootfs \
 	compat-links isd-defconfig isdconfig validate-config resolve-packages \
+	plan \
 	print-artifacts print-artifacts-mk update-machine image-ext2-home \
 	ai-dev-rules-install \
 	$(addprefix build-,$(RESOLVED_PACKAGES))
@@ -66,7 +67,7 @@ help:
 	@echo "  ARCH=$(ARCH)  PROFILE=$(PROFILE)  IR0_ROOT=$(IR0_ROOT)"
 	@echo "  DISK=$(DISK)"
 	@echo "  RESOLVED_PACKAGES=$(RESOLVED_PACKAGES)"
-	@echo "  Targets: isd-defconfig isdconfig validate-config resolve-packages"
+	@echo "  Targets: isd-defconfig isdconfig validate-config resolve-packages plan"
 	@echo "           fetch headers build toolchain-check elf-audit"
 	@echo "           rootfs-tree rootfs-tar image-minix image-ext2-root image rootfs"
 	@echo "           profiles-check personal-data-check rootfs-check release-check"
@@ -109,6 +110,12 @@ validate-config:
 resolve-packages:
 	@chmod +x scripts/resolve-packages.sh
 	@PROFILE=$(PROFILE) scripts/resolve-packages.sh
+
+# Immutable resolver output. Does not fetch, compile, or pack.
+plan:
+	@chmod +x scripts/isdconfig.py scripts/isdctl scripts/resolve-packages.sh
+	@PROFILE=$(PROFILE) ARCH=$(ARCH) python3 scripts/isdconfig.py \
+		--profile $(PROFILE) plan
 
 print-artifacts:
 	@chmod +x scripts/print-artifacts.sh
@@ -169,7 +176,7 @@ $(STAMP_PACKAGES)/%: $(STAMP_TOOLCHAIN) packages/%/build.sh scripts/stamp-run.sh
 		case "$$status" in \
 			unsupported) echo "✗ $* unsupported on ARCH=$(ARCH)"; exit 1 ;; \
 			blocked-by-package|blocked-by-kernel-ABI) \
-				echo "  SKIP    $* ($$status)"; exit 0 ;; \
+				echo "✗ $* requested but $$status"; exit 1 ;; \
 		esac; \
 		ARCH=$(ARCH) CC="$(CC)" MUSL_CC="$(CC)" PRODUCT_OUT="$(PRODUCT_OUT)" \
 			OUT="$(PRODUCT_OUT)" SYSROOT="$(SYSROOT)" \
