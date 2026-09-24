@@ -8,6 +8,8 @@ PKG="$(cd "$(dirname "$0")" && pwd)"
 # Upstream renamed the project pack-unpack and moved sources under src/ in
 # 1.6.0; PACK_EXTRACT_ROOT still works for older checkouts.
 PE_ROOT="${PACK_UNPACK_ROOT:-${PACK_EXTRACT_ROOT:-${ROOT}/../pack-unpack}}"
+PACK_UNPACK_REF="${PACK_UNPACK_REF:-v1.6.1}"
+PACK_UNPACK_COMMIT="${PACK_UNPACK_COMMIT:-3e727bfc21a12911c6ad9c09560a073adf641aff}"
 SRC="${PKG}/src"
 DEPS="${PKG}/deps"
 DIST="${PKG}/dist"
@@ -17,10 +19,19 @@ LIBARCHIVE_VER="${LIBARCHIVE_VER:-3.7.7}"
 ZLIB_URL="https://github.com/madler/zlib/releases/download/v${ZLIB_VER}/zlib-${ZLIB_VER}.tar.gz"
 LIBARCHIVE_URL="https://github.com/libarchive/libarchive/releases/download/v${LIBARCHIVE_VER}/libarchive-${LIBARCHIVE_VER}.tar.gz"
 
+FETCHED_UPSTREAM=""
 if [ ! -f "${PE_ROOT}/src/pack.c" ] || [ ! -f "${PE_ROOT}/src/unpack.c" ]; then
-	echo "✗ pack-unpack: missing src/pack.c or src/unpack.c at ${PE_ROOT}" >&2
-	echo "  clone https://github.com/IRodriguez13/pack-unpack" >&2
-	exit 1
+	FETCHED_UPSTREAM="$(mktemp -d)"
+	trap 'rm -rf "$FETCHED_UPSTREAM"' EXIT
+	echo "  FETCH   pack-unpack ${PACK_UNPACK_REF} (pinned upstream)"
+	git clone -q --depth 1 --branch "$PACK_UNPACK_REF" \
+		https://github.com/IRodriguez13/pack-unpack.git "$FETCHED_UPSTREAM"
+	actual_commit="$(git -C "$FETCHED_UPSTREAM" rev-parse HEAD)"
+	[ "$actual_commit" = "$PACK_UNPACK_COMMIT" ] || {
+		echo "✗ pack-unpack commit mismatch: ${actual_commit}" >&2
+		exit 1
+	}
+	PE_ROOT="$FETCHED_UPSTREAM"
 fi
 
 rm -rf "$SRC"

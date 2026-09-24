@@ -15,5 +15,8 @@ CC="$CC" AR="$AR" RANLIB="$RANLIB" CFLAGS="-Os -fno-pie" LDFLAGS="-static -no-pi
 make -s -j"$(nproc)"
 make -s DESTDIR="$PREFIX" install
 find "$PREFIX/usr/lib" -maxdepth 1 -name '*.la' -delete
+pc="$PREFIX/usr/lib/pkgconfig/freetype2.pc"
+test -f "$pc"
+sed -i "s|^prefix=.*|prefix=$PREFIX/usr|" "$pc"
 test -f "$PREFIX/usr/lib/libfreetype.a"
 echo "✓ freetype OK → $PREFIX"

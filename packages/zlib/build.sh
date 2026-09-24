@@ -9,8 +9,20 @@ PREFIX="${PKG}/prefix/${ARCH}/usr"
 mkdir -p "$PREFIX"
 cd "${PKG}/src"
 make distclean >/dev/null 2>&1 || true
-CHOST="$TARGET_TRIPLE" CC="$CC" AR="$AR" RANLIB="$RANLIB" CFLAGS="-Os -fno-pie" \
+# zlib's configure links its vsnprintf probe using CFLAGS only.  On PIE-by-
+# default hosts, -fno-pie without -no-pie makes that probe fail at link time
+# and silently enables the unsafe NO_vsnprintf/vsprintf fallback.
+CHOST="$TARGET_TRIPLE" CC="$CC" AR="$AR" RANLIB="$RANLIB" \
+CFLAGS="-Os -fno-pie -no-pie" \
 ./configure --static --prefix=/usr
+grep -q 'Checking for vsnprintf() in stdio.h... Yes.' configure.log || {
+	echo "✗ zlib refused: secure vsnprintf probe failed" >&2
+	exit 1
+}
+if grep -q -- '-DNO_vsnprintf' configure.log; then
+	echo "✗ zlib refused: configure selected unsafe vsprintf fallback" >&2
+	exit 1
+fi
 make -s -j"$(nproc)" libz.a
 mkdir -p "$PREFIX/lib/pkgconfig" "$PREFIX/include"
 install -m 0644 libz.a "$PREFIX/lib/libz.a"

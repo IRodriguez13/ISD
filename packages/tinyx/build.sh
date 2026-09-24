@@ -25,6 +25,8 @@ make distclean >/dev/null 2>&1 || true
 PKG_CONFIG_LIBDIR="$pc" ACLOCAL_PATH="${ROOT}/packages/xtrans/prefix/${ARCH}/usr/share/aclocal" \
 CC="$CC" AR="$AR" RANLIB="$RANLIB" CPPFLAGS="$cpp" CFLAGS="-Os -fno-pie" \
 LDFLAGS="-static -no-pie $ld" \
+FREETYPE_CFLAGS="-I${ROOT}/packages/freetype/prefix/${ARCH}/usr/include/freetype2" \
+FREETYPE_LIBS="-lfreetype" \
 LIBS="-lfreetype -lfontenc -lXau -lXdmcp -lm" \
 ./configure --prefix=/usr --host="$TARGET_TRIPLE" --enable-kdrive --enable-xfbdev \
   --disable-xvesa --disable-xdmcp --disable-xdm-auth-1 --disable-install-setuid \

@@ -28,11 +28,15 @@ endif
 include mk/paths.mk
 include mk/toolchain.mk
 
-# Resolved set: core ∪ profile packages.txt ∪ profile-local config.
-# Empty or failed resolve is a hard error (no silent busybox+runit fallback).
-RESOLVED_PACKAGES := $(shell PROFILE=$(PROFILE) bash $(CURDIR)/scripts/resolve-packages.sh)
-ifeq ($(strip $(RESOLVED_PACKAGES)),)
-  $(error resolve-packages.sh failed or returned empty for PROFILE=$(PROFILE))
+# Resolved set: core ∪ profile packages.txt ∪ profile-local config. Pure UI
+# targets must not pay the package-graph cost before curses can even draw.
+ifneq ($(filter isdconfig menuconfig,$(MAKECMDGOALS)),)
+  RESOLVED_PACKAGES :=
+else
+  RESOLVED_PACKAGES := $(shell PROFILE=$(PROFILE) bash $(CURDIR)/scripts/resolve-packages.sh)
+  ifeq ($(strip $(RESOLVED_PACKAGES)),)
+    $(error resolve-packages.sh failed or returned empty for PROFILE=$(PROFILE))
+  endif
 endif
 
 PKG_STAMPS := $(addprefix $(STAMP_PACKAGES)/,$(RESOLVED_PACKAGES))
@@ -100,6 +104,13 @@ isd-defconfig:
 isdconfig:
 	@chmod +x scripts/isdconfig.py
 	@PROFILE=$(PROFILE) python3 scripts/isdconfig.py menu
+
+# Familiar alias for the full-screen, sectioned package selector.
+menuconfig: isdconfig
+
+# The configurator is the free-form distro composer. Named profiles remain
+# available to build/test, but users should not need to know this internal name.
+isdconfig menuconfig: PROFILE := custom
 
 validate-config:
 	@chmod +x scripts/isdconfig.py scripts/resolve-packages.sh
@@ -211,7 +222,9 @@ $(STAMP_PACKAGES)/libxmu: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
 	$(STAMP_PACKAGES)/libxt
 $(STAMP_PACKAGES)/libxpm: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext
+	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
+	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
+	$(STAMP_PACKAGES)/libxt
 $(STAMP_PACKAGES)/libxaw: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
 	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
@@ -287,6 +300,10 @@ $(STAMP_PACKAGES)/xmessage: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
 	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
 	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw
+$(STAMP_PACKAGES)/xload: $(STAMP_PACKAGES)/xorgproto \
+	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxt \
+	$(STAMP_PACKAGES)/libxmu $(STAMP_PACKAGES)/libxpm \
+	$(STAMP_PACKAGES)/libxaw
 $(STAMP_PACKAGES)/xsetroot: $(STAMP_PACKAGES)/xorgproto \
 	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxmu \
 	$(STAMP_PACKAGES)/libxfixes $(STAMP_PACKAGES)/libxrender \

@@ -21,6 +21,8 @@ cd "${PKG}/src"
 make distclean >/dev/null 2>&1 || true
 PKG_CONFIG_LIBDIR="$pc" CC="$CC" AR="$AR" RANLIB="$RANLIB" \
 CPPFLAGS="$cpp" LDFLAGS="-static -no-pie $ld" CFLAGS="-Os -fno-pie" \
+FREETYPE_CFLAGS="-I${ROOT}/packages/freetype/prefix/${ARCH}/usr/include/freetype2" \
+FREETYPE_LIBS="-lfreetype" \
 ./configure --prefix=/usr --host="$TARGET_TRIPLE" --disable-shared --enable-static \
   --disable-devel-docs --without-xmlto --without-fop
 make -s -j"$(nproc)"

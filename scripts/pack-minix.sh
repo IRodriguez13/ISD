@@ -115,6 +115,10 @@ elif [ "$INIT_SYSTEM" = "openrc" ]; then
 		rel="${f#${TREE}/}"
 		inject_file "$f" "$rel"
 	done < <(find "${TREE}/etc/runlevels" -type l -print0 2>/dev/null)
+	while IFS= read -r -d '' f; do
+		rel="${f#${TREE}/}"
+		inject_file "$f" "$rel"
+	done < <(find "${TREE}/etc/runlevels" -name .keep -type f -print0 2>/dev/null)
 fi
 inject_file "${TREE}/sbin/fsck.ir0" sbin/fsck.ir0
 inject_file "${TREE}/sbin/ir0-firstboot" sbin/ir0-firstboot
@@ -268,7 +272,7 @@ elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
 fi
 
 for f in passwd group issue hostname profile ashrc os-release shells hosts \
-	console.conf ir0-profile resolv.conf man.conf; do
+	console.conf ir0-profile resolv.conf man.conf fstab; do
 	[ -f "${TREE}/etc/${f}" ] || continue
 	mode=0644
 	[ "$f" = "shadow" ] && continue
@@ -384,7 +388,7 @@ elif [ "$INIT_SYSTEM" = "sysvinit" ]; then
 	)
 elif [ "$INIT_SYSTEM" = "openrc" ]; then
 	VERIFY_PATHS+=( \
-		/sbin/openrc-init /sbin/openrc /etc/rc.conf \
+		/sbin/openrc-init /sbin/openrc /etc/rc.conf /etc/fstab \
 		/etc/init.d/ir0-boot /sbin/ir0-boot \
 		/sbin/console-run /sbin/logger-run \
 		/libexec/rc/sh/init.sh /libexec/rc/sh/rc-func.sh \

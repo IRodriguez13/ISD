@@ -479,6 +479,54 @@ assert "runit" not in p["packages"]
 assert p["status"]=="buildable"
 ' && ok "K plan openrc is not runit" || bad "K plan openrc: $plan_openrc"
 
+# Custom composition exposes every init while resolving only selected packages.
+CFGC="$TMP/isdconfig-custom"
+PROFILE=custom python3 scripts/isdconfig.py --profile custom --config "$CFGC" defconfig --force
+PROFILE=custom python3 scripts/isdconfig.py --profile custom --config "$CFGC" set SUDO=y
+sed -i 's/^INIT_SYSTEM=runit$/INIT_SYSTEM=openrc/' "$CFGC"
+plan_custom=$(PROFILE=custom ISD_CONFIG="$CFGC" python3 scripts/isdconfig.py \
+	--config "$CFGC" --profile custom plan --json)
+echo "$plan_custom" | python3 -c '
+import json,sys
+p=json.load(sys.stdin)
+assert p["init"]=="openrc"
+assert p["admin"]=="sudo"
+assert p["packages"]==["busybox","openrc","sudo"], p["packages"]
+assert p["status"]=="buildable"
+' && ok "K custom exact package/init plan" || bad "K custom plan: $plan_custom"
+
+CFGC_RESET="$TMP/isdconfig-custom-reset"
+cp "$CFGC" "$CFGC_RESET"
+PROFILE=custom python3 scripts/isdconfig.py --profile custom --config "$CFGC_RESET" \
+	defconfig --force >/dev/null
+grep -q '^INIT_SYSTEM=runit$' "$CFGC_RESET" \
+	&& grep -q '^LIBC=musl$' "$CFGC_RESET" \
+	&& ok "K custom force reset ignores previous selections" \
+	|| bad "K custom force reset inherited stale init/libc"
+
+# A custom image may not silently substitute a missing or unavailable libc.
+cp "$CFGC" "$CFGC.blank-libc"
+sed -i 's/^LIBC=.*$/LIBC=/' "$CFGC.blank-libc"
+set +e
+out_libc_blank=$(PROFILE=custom python3 scripts/isdconfig.py --profile custom \
+	--config "$CFGC.blank-libc" plan 2>&1)
+rc_libc_blank=$?
+set -e
+[ "$rc_libc_blank" -ne 0 ] && echo "$out_libc_blank" | grep -qi 'libc selection is required' \
+	&& ok "K custom blank libc fails closed" \
+	|| bad "K custom blank libc: rc=$rc_libc_blank out=$out_libc_blank"
+
+cp "$CFGC" "$CFGC.glibc"
+sed -i 's/^LIBC=.*$/LIBC=glibc/' "$CFGC.glibc"
+set +e
+out_glibc=$(PROFILE=custom python3 scripts/isdconfig.py --profile custom \
+	--config "$CFGC.glibc" plan 2>&1)
+rc_glibc=$?
+set -e
+[ "$rc_glibc" -ne 0 ] && echo "$out_glibc" | grep -qi 'not packaged or guest-verified' \
+	&& ok "K glibc remains blocked until Docker+QEMU verified" \
+	|| bad "K glibc gate: rc=$rc_glibc out=$out_glibc"
+
 ctl_out=$(PROFILE=minimal scripts/isdctl --profile minimal plan --json)
 echo "$ctl_out" | python3 -c '
 import json,sys
@@ -486,6 +534,33 @@ p=json.load(sys.stdin)
 assert p["status"]=="buildable"
 assert p["init"]=="runit"
 ' && ok "K isdctl plan matches resolver" || bad "K isdctl: $ctl_out"
+
+grep -q 'CFLAGS="-Os -fno-pie -no-pie"' packages/zlib/build.sh \
+	&& grep -q 'unsafe vsprintf fallback' packages/zlib/build.sh \
+	&& ok "K zlib PIE probe cannot enable unsafe vsprintf fallback" \
+	|| bad "K zlib secure vsnprintf configure guard missing"
+
+grep -q '^$(STAMP_PACKAGES)/xload:' Makefile \
+	&& ok "K xload dependency edge makes clean parallel builds deterministic" \
+	|| bad "K xload dependency edge missing"
+
+grep -q 'prefix=$PREFIX/usr' packages/freetype/build.sh \
+	&& ok "K freetype pkg-config metadata is relocated from DESTDIR" \
+	|| bad "K freetype pkg-config metadata relocation missing"
+
+grep -q 'FREETYPE_CFLAGS=.*include/freetype2' packages/libxfont/build.sh \
+	&& grep -q 'FREETYPE_CFLAGS=.*include/freetype2' packages/tinyx/build.sh \
+	&& ok "K freetype consumers use the isolated include prefix" \
+	|| bad "K freetype consumer include isolation missing"
+
+grep -q -- '--with-keysymdefdir=' packages/libx11/build.sh \
+	&& ok "K libX11 keysym lookup uses the isolated xorgproto prefix" \
+	|| bad "K libX11 isolated keysym lookup missing"
+
+grep -q '^DEPENDS=.*libice.*libsm.*libxt' packages/libxpm/package.conf \
+	&& sed -n '/^$(STAMP_PACKAGES)\/libxpm:/,/^$(STAMP_PACKAGES)\/libxaw:/p' Makefile | grep -q '$(STAMP_PACKAGES)/libxt' \
+	&& ok "K libXpm static link dependencies are ordered explicitly" \
+	|| bad "K libXpm static dependency ordering missing"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
