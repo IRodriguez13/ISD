@@ -32,6 +32,11 @@ if [ ! -f "${PROF_DIR}/profile.conf" ]; then
 fi
 # shellcheck disable=SC1090
 source "${PROF_DIR}/profile.conf"
+CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
+if [ "$PROFILE" = "custom" ] && [ -f "$CFG" ]; then
+	cfg_init="$(grep -E '^INIT_SYSTEM=' "$CFG" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]' || true)"
+	[ -n "$cfg_init" ] && INIT_SYSTEM="$cfg_init"
+fi
 
 if [ -z "${INIT_SYSTEM:-}" ]; then
 	echo "✗ missing INIT_SYSTEM in ${PROF_DIR}/profile.conf" >&2
@@ -125,6 +130,11 @@ if [ "$INIT_SYSTEM" = "openrc" ]; then
 		"${DEST}/run/openrc"
 	chmod 0755 "${DEST}/run/openrc"
 	touch "${DEST}/run/openrc/.keep"
+	# MINIX packing cannot infer empty directories. Keep every OpenRC runlevel
+	# materialized so `openrc boot` is a valid (possibly empty) runlevel.
+	touch "${DEST}/etc/runlevels/sysinit/.keep" \
+		"${DEST}/etc/runlevels/boot/.keep" \
+		"${DEST}/etc/runlevels/default/.keep"
 fi
 chmod 01777 "${DEST}/tmp"
 chmod 0755 "${DEST}/run"
@@ -606,7 +616,7 @@ fi
 
 # Account policy by profile
 case "$PROFILE" in
-minimal|desktop|desktop-console|appliance)
+minimal|desktop|desktop-console|appliance|custom)
 	install -m 0644 "${ROOT}/rootfs/base/etc/passwd" "${DEST}/etc/passwd"
 	install -m 0600 "${ROOT}/rootfs/base/etc/shadow" "${DEST}/etc/shadow"
 	install -m 0644 "${ROOT}/rootfs/base/etc/group" "${DEST}/etc/group"
@@ -625,6 +635,11 @@ development)
 	cp -a "${ROOT}/profiles/development/examples/." "${DEST}/home/labuser/Developer/"
 	;;
 esac
+
+# Account database modes are a global security invariant, independent of the
+# selected product preset or init implementation.
+chmod 0644 "${DEST}/etc/passwd" "${DEST}/etc/group"
+chmod 0600 "${DEST}/etc/shadow"
 
 if [ "$PROFILE" = "desktop" ] || [ "$PROFILE" = "desktop-console" ] || [ "${ROOT_POLICY:-}" = "noroot_login" ]; then
 	printf '1\n' > "${DEST}/etc/ir0-noroot"

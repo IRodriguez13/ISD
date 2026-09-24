@@ -1,0 +1,2 @@
+# Intentionally empty: core BusyBox + selected init are implicit.
+# Every additional package comes exclusively from .isdconfig.d/custom.

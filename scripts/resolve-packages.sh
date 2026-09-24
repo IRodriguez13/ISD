@@ -29,6 +29,10 @@ fi
 unset INIT_SYSTEM
 # shellcheck disable=SC1090
 source "$PROF_CONF"
+if [ "$PROFILE" = "custom" ] && [ -f "$CFG" ]; then
+	cfg_init="$(grep -E '^INIT_SYSTEM=' "$CFG" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]' || true)"
+	[ -n "$cfg_init" ] && INIT_SYSTEM="$cfg_init"
+fi
 if [ -z "${INIT_SYSTEM:-}" ]; then
 	fail "missing INIT_SYSTEM in ${PROF_CONF}"
 fi
@@ -55,6 +59,15 @@ require_recipe() {
 		fail "${ctx}: packages/${pkg}/ missing build.sh"
 	fi
 }
+
+declare -A PACKAGE_BY_KEY=()
+for package_build in "${ROOT}"/packages/*/build.sh; do
+	[ -f "$package_build" ] || continue
+	package_name="$(basename "$(dirname "$package_build")")"
+	package_key="${package_name^^}"
+	package_key="${package_key//-/_}"
+	PACKAGE_BY_KEY["$package_key"]="$package_name"
+done
 
 # Core always present: userland base + selected init implementation.
 for core in busybox "$INIT_PKG"; do
@@ -86,8 +99,9 @@ if [ -f "$CFG" ]; then
 			key="${line%%=*}"
 			name="${key#CONFIG_PKG_}"
 			case "$name" in
-			PACK_EXTRACT) pkg="pack-extract" ;;
-			*) pkg="$(echo "$name" | tr '[:upper:]' '[:lower:]')" ;;
+			RUNIT|SYSVINIT|OPENRC) continue ;; # exclusive INIT_SYSTEM owns this
+			*) pkg="${PACKAGE_BY_KEY[$name]:-}";
+				[ -n "$pkg" ] || fail "${CFG}: ${line}: no matching package recipe" ;;
 			esac
 			require_recipe "$pkg" "${CFG}: ${line}"
 			add "$pkg"

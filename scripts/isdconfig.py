@@ -26,6 +26,7 @@ SUPPORTED_ROOT_FS = frozenset({"minix", "ext2"})
 SUPPORTED_ADMIN = frozenset({"doas", "sudo"})
 SUPPORTED_USERLAND = frozenset({"busybox"})
 SUPPORTED_LIBC = frozenset({"musl"})
+KNOWN_LIBCS = ("musl", "glibc")
 
 
 class ConfigError(ValueError):
@@ -34,17 +35,28 @@ class ConfigError(ValueError):
 # Legacy alias — validate/menu use core_packages(profile) instead.
 FORBIDDEN_DISABLE = ("BUSYBOX", "RUNIT")
 
-# Optional package extras (packages/<name>/).
-EXTRAS = (
-    "NANO",
-    "NCURSES",
-    "OPENDOAS",
-    "SUDO",
-    "TINYCC",
-    "GNUMAKE",
-    "DOOM",
-    "IV",
-    "PACK_EXTRACT",
+def package_key(name: str) -> str:
+    return name.upper().replace("-", "_")
+
+
+def packaged_recipes() -> dict[str, str]:
+    """Return CONFIG key -> package dir for every buildable recipe."""
+    result: dict[str, str] = {}
+    packages = ROOT / "packages"
+    if not packages.is_dir():
+        return result
+    for build in sorted(packages.glob("*/build.sh")):
+        name = build.parent.name
+        result[package_key(name)] = name
+    return result
+
+
+PACKAGE_RECIPES = packaged_recipes()
+# Init is selected separately and BusyBox is immutable core. Everything else
+# is an exact, user-selectable package in the custom-distro menu.
+EXTRAS = tuple(
+    key for key, name in PACKAGE_RECIPES.items()
+    if name not in {"busybox", *SUPPORTED_INIT_SYSTEMS}
 )
 
 # One admin elevation tool per profile (doas via opendoas, or gnu sudo).
@@ -58,9 +70,7 @@ APPLETS: dict[str, str] = {
 
 # Reserved for extras that need a non-lowercase package dir name.
 # DOOM → packages/doom/ (packaged); keep map empty unless a rename is needed.
-FUTURE_PACKAGES: dict[str, str] = {
-    "PACK_EXTRACT": "pack-extract",
-}
+FUTURE_PACKAGES: dict[str, str] = dict(PACKAGE_RECIPES)
 
 # If KEY=y, ensure each dep is y (or reject).
 AUTO_DEPS = {
@@ -71,17 +81,7 @@ CORE_DEFAULTS = {k: "y" for k in FORBIDDEN_DISABLE}
 
 # Profile-local extras default off. Product profiles declare mandatory software
 # in profiles/<profile>/packages.txt, so creating a config never pollutes minimal.
-EXTRA_DEFAULTS = {
-    "NANO": "n",
-    "NCURSES": "n",
-    "OPENDOAS": "n",
-    "SUDO": "n",
-    "TINYCC": "n",
-    "GNUMAKE": "n",
-    "DOOM": "n",
-    "IV": "n",
-    "PACK_EXTRACT": "n",
-}
+EXTRA_DEFAULTS = {key: "n" for key in EXTRAS}
 APPLET_DEFAULTS = {k: "y" for k in APPLETS}
 
 
@@ -103,10 +103,12 @@ def profile_exists(profile: str) -> bool:
     return (ROOT / "profiles" / profile / "profile.conf").is_file()
 
 
-def profile_init_system(profile: str) -> str:
+def profile_init_system(profile: str, path: Path | None = None) -> str:
     if not profile_exists(profile):
         raise ConfigError(f"unknown profile {profile}")
     init = read_profile_conf(profile).get("INIT_SYSTEM", "").strip()
+    if profile == "custom" and path is not None:
+        init = parse_cfg(path).get("INIT_SYSTEM", init).strip()
     if not init:
         raise ConfigError(f"profile {profile}: missing INIT_SYSTEM")
     if init not in SUPPORTED_INIT_SYSTEMS:
@@ -133,20 +135,31 @@ def profile_userland(profile: str) -> str:
     return userland
 
 
-def profile_libc(profile: str) -> str:
+def profile_libc(profile: str, path: Path | None = None) -> str:
     libc = read_profile_conf(profile).get("LIBC", "musl").strip() or "musl"
+    if profile == "custom" and path is not None:
+        configured = parse_cfg(path).get("LIBC")
+        if configured is not None:
+            libc = configured.strip()
+            if not libc:
+                raise ConfigError("profile custom: libc selection is required")
     if libc not in SUPPORTED_LIBC:
+        if libc == "glibc":
+            raise ConfigError(
+                "profile custom: glibc is not packaged or guest-verified yet; "
+                "select musl until packages/glibc passes the Docker+QEMU gate"
+            )
         raise ConfigError(f"profile {profile}: unsupported LIBC={libc}")
     return libc
 
 
-def core_packages(profile: str) -> tuple[str, ...]:
-    init = profile_init_system(profile).upper()
+def core_packages(profile: str, path: Path | None = None) -> tuple[str, ...]:
+    init = profile_init_system(profile, path).upper()
     return (CORE_BUSYBOX, init)
 
 
-def core_menu_label(profile: str) -> str:
-    init = profile_init_system(profile)
+def core_menu_label(profile: str, path: Path | None = None) -> str:
+    init = profile_init_system(profile, path)
     return f"Core busybox + {init} are always on."
 
 
@@ -175,19 +188,26 @@ def parse_cfg(path: Path) -> dict[str, str]:
 
 
 def write_cfg(path: Path, data: dict[str, str], profile: str = "minimal") -> None:
-    core = core_packages(profile)
+    init = data.get("INIT_SYSTEM", "").strip() if profile == "custom" else ""
+    if not init:
+        init = profile_init_system(profile, path)
+    if init not in SUPPORTED_INIT_SYSTEMS:
+        raise ConfigError(f"profile {profile}: unsupported INIT_SYSTEM={init}")
+    core = (CORE_BUSYBOX, init.upper())
     keys = (
         [f"CONFIG_PKG_{k}" for k in core]
         + [f"CONFIG_PKG_{k}" for k in EXTRAS]
         + [f"CONFIG_APPLET_{k}" for k in APPLETS]
     )
-    init = profile_init_system(profile)
     lines = [
         "# ISD package extras (.isdconfig) — generated by scripts/isdconfig.py",
         f"# Core busybox + {init} always on. Profile packages.txt = mandatory set.",
         "# CONFIG_PKG_* = optional packages; CONFIG_APPLET_* = BusyBox links.",
         "",
     ]
+    if profile == "custom":
+        libc = data.get("LIBC", "").strip() or profile_libc(profile, path)
+        lines.extend([f"INIT_SYSTEM={init}", f"LIBC={libc}", ""])
     for key in keys:
         if key.startswith("CONFIG_PKG_"):
             short = key[len("CONFIG_PKG_") :]
@@ -206,9 +226,9 @@ def write_cfg(path: Path, data: dict[str, str], profile: str = "minimal") -> Non
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def ensure_defaults(data: dict[str, str], profile: str = "minimal") -> dict[str, str]:
+def ensure_defaults(data: dict[str, str], profile: str = "minimal", path: Path | None = None) -> dict[str, str]:
     out = dict(data)
-    for k in core_packages(profile):
+    for k in core_packages(profile, path):
         out.setdefault(f"CONFIG_PKG_{k}", "y")
     for k, v in EXTRA_DEFAULTS.items():
         out.setdefault(f"CONFIG_PKG_{k}", v)
@@ -360,17 +380,25 @@ def cmd_defconfig(path: Path, profile: str, force: bool) -> int:
     if path.is_file() and not force:
         print(f"  CONFIG    {path} already present (use --force to reset)")
         return 0
-    data = ensure_defaults({}, profile)
+    data: dict[str, str] = {}
+    defaults_path = path
+    if profile == "custom" and force:
+        # A forced reset must not inherit init/libc from the file being reset.
+        conf = read_profile_conf(profile)
+        data["INIT_SYSTEM"] = conf.get("INIT_SYSTEM", "runit")
+        data["LIBC"] = conf.get("LIBC", "musl")
+        defaults_path = None
+    data = ensure_defaults(data, profile, defaults_path)
     write_cfg(path, data, profile)
     print(f"  CONFIG    wrote {path}")
     return 0
 
 
 def cmd_show(path: Path, profile: str) -> int:
-    data = ensure_defaults(parse_cfg(path), profile)
+    data = ensure_defaults(parse_cfg(path), profile, path)
     print(f"# {path}")
     print("# packages")
-    for k in core_packages(profile) + EXTRAS:
+    for k in core_packages(profile, path) + EXTRAS:
         key = f"CONFIG_PKG_{k}"
         print(f"{key}={data.get(key, 'n')}")
     print("# applets (BusyBox hardlinks)")
@@ -381,8 +409,8 @@ def cmd_show(path: Path, profile: str) -> int:
 
 
 def cmd_set(path: Path, profile: str, assignments: list[str]) -> int:
-    data = ensure_defaults(parse_cfg(path), profile)
-    core = core_packages(profile)
+    data = ensure_defaults(parse_cfg(path), profile, path)
+    core = core_packages(profile, path)
     pending: list[tuple[str, str, str]] = []
     for item in assignments:
         parsed = _normalize_assignment(item)
@@ -433,10 +461,10 @@ def cmd_validate(path: Path, profile: str) -> int:
     if not profile_exists(profile):
         print(f"✗ unknown profile {profile}", file=sys.stderr)
         return 2
-    data = ensure_defaults(parse_cfg(path), profile)
+    data = ensure_defaults(parse_cfg(path), profile, path)
     errors: list[str] = []
 
-    for short in core_packages(profile):
+    for short in core_packages(profile, path):
         if not pkg_enabled(data, short):
             errors.append(
                 f"✗ CONFIG_PKG_{short}=n is forbidden (core package; "
@@ -495,12 +523,12 @@ def resolved_packages(profile: str, path: Path) -> list[str]:
 def build_plan(profile: str, path: Path, arch: str | None = None) -> dict:
     if not profile_exists(profile):
         raise ConfigError(f"unknown profile {profile}")
-    data = ensure_defaults(parse_cfg(path), profile)
+    data = ensure_defaults(parse_cfg(path), profile, path)
     errors = validate_enabled_pkgs(data, profile)
-    init = profile_init_system(profile)
+    init = profile_init_system(profile, path)
     root_fs = profile_root_fs(profile)
     userland = profile_userland(profile)
-    libc = profile_libc(profile)
+    libc = profile_libc(profile, path)
     admin = admin_elevation_from_data(data, profile)
     packages = resolved_packages(profile, path)
     missing = []
@@ -624,9 +652,141 @@ def _open_menu_streams():
     return None, None, None
 
 
+def _package_section(short: str) -> str:
+    if short in {"OPENDOAS", "SUDO"}:
+        return "Security and administration"
+    if short in {"TINYCC", "GNUMAKE", "PACK_EXTRACT", "NANO", "NCURSES"}:
+        return "Development tools"
+    if short.startswith(("X", "LIBX", "FONT_")) or short in {
+        "TINYX", "TWM", "FREETYPE", "LIBFONTENC", "ZLIB"
+    }:
+        return "Graphical desktop and X11"
+    if short in {"DOOM", "IV"}:
+        return "Applications"
+    return "Libraries and system software"
+
+
+def _package_label(short: str) -> str:
+    if short == "PACK_EXTRACT":
+        return "pack + unpack (extract alias)"
+    return pkg_dirname(short)
+
+
+def _menuconfig(path: Path, profile: str, data: dict[str, str]) -> int:
+    """Full-screen stdlib curses selector, modelled after kernel menuconfig."""
+    import curses
+
+    rows: list[tuple[str, str, str]] = []
+    if profile == "custom":
+        rows.extend([
+            ("choice", "INIT_SYSTEM", "Init system"),
+            ("choice", "LIBC", "C library"),
+        ])
+    sections = (
+        "Security and administration",
+        "Development tools",
+        "Graphical desktop and X11",
+        "Applications",
+        "Libraries and system software",
+    )
+    for section in sections:
+        members = [short for short in EXTRAS if _package_section(short) == section]
+        if not members:
+            continue
+        rows.append(("header", section, section))
+        rows.extend(("pkg", short, _package_label(short)) for short in members)
+    rows.append(("header", "BusyBox applets", "BusyBox applets"))
+    rows.extend(("applet", short, applet) for short, applet in APPLETS.items())
+    selectable = [i for i, row in enumerate(rows) if row[0] != "header"]
+
+    def draw(stdscr) -> int:
+        curses.curs_set(0)
+        stdscr.keypad(True)
+        pos = 0
+        top = 0
+        message = "Space/Enter: select   S: save   Q: discard   arrows: navigate"
+        while True:
+            height, width = stdscr.getmaxyx()
+            visible = max(3, height - 6)
+            current = selectable[pos]
+            if current < top:
+                top = current
+            if current >= top + visible:
+                top = current - visible + 1
+            stdscr.erase()
+            stdscr.addnstr(0, 2, "ISD Distribution Configuration", width - 4, curses.A_BOLD)
+            stdscr.addnstr(1, 2, f"Profile: {profile}   Config: {path}", width - 4)
+            for screen_y, row_i in enumerate(range(top, min(len(rows), top + visible)), 3):
+                kind, key, label = rows[row_i]
+                attr = curses.A_REVERSE if row_i == current else curses.A_NORMAL
+                if kind == "header":
+                    text = f"--- {label} ---"
+                    attr |= curses.A_BOLD
+                elif kind == "choice":
+                    value = data.get(key, profile_init_system(profile, path) if key == "INIT_SYSTEM" else "musl")
+                    text = f"    ({value}) {label}"
+                else:
+                    cfgkey = f"CONFIG_{'PKG' if kind == 'pkg' else 'APPLET'}_{key}"
+                    value = data.get(cfgkey, "n")
+                    marker = "*" if value == "y" else " "
+                    unavailable = kind == "pkg" and not recipe_ready(key)
+                    suffix = " [unavailable]" if unavailable else ""
+                    text = f"    [{marker}] {label}{suffix}"
+                try:
+                    stdscr.addnstr(screen_y, 2, text, width - 4, attr)
+                except curses.error:
+                    pass
+            stdscr.addnstr(height - 2, 1, message, width - 2)
+            stdscr.refresh()
+            ch = stdscr.getch()
+            if ch in (curses.KEY_UP, ord("k")):
+                pos = (pos - 1) % len(selectable)
+            elif ch in (curses.KEY_DOWN, ord("j")):
+                pos = (pos + 1) % len(selectable)
+            elif ch in (ord("q"), ord("Q"), 27):
+                return 1
+            elif ch in (ord("s"), ord("S")):
+                return 0
+            elif ch in (ord(" "), 10, 13):
+                kind, key, label = rows[current]
+                if kind == "choice" and key == "INIT_SYSTEM":
+                    choices = ("runit", "sysvinit", "openrc")
+                    old = data.get(key, "runit")
+                    data[key] = choices[(choices.index(old) + 1) % len(choices)]
+                elif kind == "choice" and key == "LIBC":
+                    message = "glibc is blocked until Docker+QEMU verification; musl remains selected"
+                    data[key] = "musl"
+                elif kind in {"pkg", "applet"}:
+                    if kind == "pkg" and not recipe_ready(key):
+                        message = f"{label}: package recipe unavailable"
+                        continue
+                    cfgkey = f"CONFIG_{'PKG' if kind == 'pkg' else 'APPLET'}_{key}"
+                    data[cfgkey] = "n" if data.get(cfgkey, "n") == "y" else "y"
+                    if kind == "pkg" and data[cfgkey] == "y":
+                        if key in ADMIN_EXTRAS:
+                            apply_admin_exclusion(data, key)
+                        for dep in AUTO_DEPS.get(key, ()):
+                            data[f"CONFIG_PKG_{dep}"] = "y"
+
+    if curses.wrapper(draw) != 0:
+        print("  CONFIG    discarded")
+        return 0
+    write_cfg(path, data, profile)
+    print(f"  CONFIG    wrote {path}")
+    return cmd_validate(path, profile)
+
+
 def cmd_menu(path: Path, profile: str) -> int:
     """Interactive toggle for extras; saves and validates."""
-    data = ensure_defaults(parse_cfg(path), profile)
+    data = ensure_defaults(parse_cfg(path), profile, path)
+
+    # A real terminal gets the sectioned full-screen selector. Keep the line
+    # menu below as a portability fallback for restricted consoles/CI shells.
+    if sys.stdin.isatty() and sys.stdout.isatty() and os.environ.get("TERM", "") not in {"", "dumb"}:
+        try:
+            return _menuconfig(path, profile, data)
+        except (ImportError, OSError):
+            pass
 
     inp, out, closer = _open_menu_streams()
     if inp is None or out is None:
@@ -647,7 +807,34 @@ def cmd_menu(path: Path, profile: str) -> int:
         out.write("ISD test-distro software (toggle y/n)\n")
         out.write(f"Config: {path}\n")
         out.write(f"Profile: {profile}\n")
-        out.write(core_menu_label(profile) + "\n")
+        if profile == "custom":
+            current_init = profile_init_system(profile, path)
+            out.write("Available init systems: runit, sysvinit, openrc\n")
+            while True:
+                out.write(f"Init system [{current_init}] ")
+                out.flush()
+                answer = inp.readline().strip().lower()
+                if not answer:
+                    answer = current_init
+                if answer in SUPPORTED_INIT_SYSTEMS:
+                    data["INIT_SYSTEM"] = answer
+                    break
+                out.write("  enter runit, sysvinit, or openrc\n")
+            current_libc = parse_cfg(path).get("LIBC", "musl").strip() or "musl"
+            out.write("Available libc: musl [ready], glibc [not packaged]\n")
+            while True:
+                out.write(f"C library [{current_libc}] ")
+                out.flush()
+                answer = inp.readline().strip().lower() or current_libc
+                if answer == "musl":
+                    data["LIBC"] = answer
+                    break
+                if answer == "glibc":
+                    out.write("  glibc is blocked until its recipe passes Docker+QEMU\n")
+                else:
+                    out.write("  enter musl or glibc\n")
+            out.write("Userland: BusyBox [ready], GNU coreutils [not packaged]\n")
+        out.write(core_menu_label(profile, path) + "\n")
         out.write("Empty answer keeps the current value.\n\n")
         out.flush()
 
@@ -714,7 +901,7 @@ def cmd_menu(path: Path, profile: str) -> int:
         print("Next: rebuild the image so packages/applets apply:")
         print(f"  make isd-image PROFILE={profile}")
         print(f"  # or from IR0: make first-boot PROFILE={profile}")
-        cmd_show(path)
+        cmd_show(path, profile)
     return rc
 
 

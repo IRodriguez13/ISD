@@ -72,6 +72,11 @@ INIT_SYSTEM=runit
 if [ -f "$PROF_CONF" ]; then
 	INIT_SYSTEM="$(grep -E '^INIT_SYSTEM=' "$PROF_CONF" | tail -1 | cut -d= -f2- | tr -d '[:space:]')"
 fi
+CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
+if [ "$PROFILE" = "custom" ] && [ -f "$CFG" ]; then
+	cfg_init="$(grep -E '^INIT_SYSTEM=' "$CFG" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]' || true)"
+	[ -n "$cfg_init" ] && INIT_SYSTEM="$cfg_init"
+fi
 INIT_SYSTEM="${INIT_SYSTEM:-runit}"
 
 if [ ! -x "${TREE}/sbin/init" ]; then
@@ -91,6 +96,11 @@ sysvinit)
 openrc)
 	[ -x "${TREE}/sbin/openrc-init" ] || err "openrc: missing sbin/openrc-init"
 	[ -f "${TREE}/etc/rc.conf" ] || err "openrc: missing etc/rc.conf"
+	[ -f "${TREE}/etc/fstab" ] || err "openrc: missing etc/fstab"
+	grep -Eq '^proc[[:space:]]+/proc[[:space:]]+proc' "${TREE}/etc/fstab" \
+		|| err "openrc: /etc/fstab lacks proc mount"
+	grep -Eq '^tmpfs[[:space:]]+/run[[:space:]]+tmpfs' "${TREE}/etc/fstab" \
+		|| err "openrc: /etc/fstab lacks /run tmpfs mount"
 	[ -x "${TREE}/sbin/ir0-boot" ] || err "openrc: missing sbin/ir0-boot"
 	[ -d "${TREE}/etc/runlevels/default" ] || err "openrc: missing etc/runlevels/default"
 	;;

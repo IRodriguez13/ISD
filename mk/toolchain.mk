@@ -6,9 +6,10 @@ export ARCH
 
 ifeq ($(origin _IR0_TC_INCLUDED), undefined)
 _IR0_TC_INCLUDED := 1
+ISD_TOOLCHAIN_CACHE ?= /tmp/isd-toolchain-$(shell id -u)-$(shell printf '%s' '$(CURDIR)' | cksum | cut -d' ' -f1)-$(ARCH).mk
 include $(shell ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
-	bash $(CURDIR)/scripts/toolchain-print.sh > $(CURDIR)/out/.toolchain-$(ARCH).mk && \
-	echo $(CURDIR)/out/.toolchain-$(ARCH).mk)
+	bash $(CURDIR)/scripts/toolchain-print.sh > $(ISD_TOOLCHAIN_CACHE) && \
+	echo $(ISD_TOOLCHAIN_CACHE))
 endif
 
 IR0_UAPI_SYSROOT ?= $(CURDIR)/sysroot

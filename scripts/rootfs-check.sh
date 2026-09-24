@@ -58,7 +58,19 @@ fi
 
 # Broken symlinks
 while IFS= read -r -d '' l; do
-	if [ ! -e "$l" ]; then
+	target="$(readlink "$l")"
+	if [[ "$target" = /* ]]; then
+		resolved="${TREE}${target}"
+	else
+		resolved="$(dirname "$l")/${target}"
+	fi
+	# Absolute guest links are rooted in TREE, not in the build host.
+	# procfs/devfs/sysfs/run targets are populated only after boot.
+	if [ ! -e "$resolved" ] \
+		&& [[ "$target" != /proc/* ]] \
+		&& [[ "$target" != /dev/* ]] \
+		&& [[ "$target" != /sys/* ]] \
+		&& [[ "$target" != /run/* ]]; then
 		echo "✗ broken symlink: ${l#"${TREE}"}" >&2
 		fail=1
 	fi

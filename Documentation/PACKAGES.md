@@ -24,6 +24,22 @@ core (busybox runit)
 
 Applets: profile `applets.txt` plus `.isdconfig.d/<profile>` `CONFIG_APPLET_*=y`.
 
+## Exact custom images
+
+`make isdconfig PROFILE=custom` enumerates every packaged recipe and offers
+`runit`, `sysvinit`, and `openrc` as mutually exclusive PID 1 choices.  The
+custom preset has no mandatory package list beyond BusyBox and the selected
+init, so its immutable plan is the exact package selection (plus declared
+automatic dependencies).  Selecting `sudo` excludes `opendoas`.
+
+Always inspect `make plan PROFILE=custom` before building.  The same plan and
+configuration hash are written to `/etc/isd-build.json` in the guest.
+
+The configurator also displays the libc and base-userland readiness.  `glibc`
+and GNU `coreutils` remain blocked choices until their package recipes and
+guest smokes pass the clean Docker+QEMU gate; they must never silently resolve
+to musl or BusyBox.
+
 Mandatory software belongs in `profiles/*/packages.txt`; optional extras default off and are isolated per profile. Development mandates TinyCC and GNU make.
 
 ## Stamp layout
