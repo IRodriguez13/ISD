@@ -84,6 +84,11 @@ make -s -n x86-64 minimal headers PROFILE=not-a-profile >/dev/null 2>&1 \
 make -s -n x86-64 minimal build-runit >/dev/null 2>&1 \
 	&& ok "R build-<pkg> resolves the profile on its own" \
 	|| bad "R build-<pkg> has no rule without another resolving goal"
+triples=$(for c in packages/arch/*/arch.conf; do (source "$c"; echo "$ISD_ARCH_TRIPLE"); done | paste -sd'|')
+isa_triples=$(grep -nE "$triples" scripts/*.sh scripts/*.py packages/*/build.sh \
+	packages/*/fetch.sh mk/*.mk Makefile 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' || true)
+[ -z "$isa_triples" ] && ok "R no hard-coded target triple outside packages/arch" \
+	|| bad "R hard-coded triple: $isa_triples"
 isa_branches=$(grep -rnE 'case "?\$\{?ARCH|ifn?eq \(\$\(ARCH\)|"\$\{?ARCH\}?" *!?=+ *"?(x86|aarch|arm|amd)' \
 	scripts mk Makefile packages/*/build.sh packages/*/fetch.sh 2>/dev/null || true)
 [ -z "$isa_branches" ] && ok "R no ISA branches outside packages/arch" \

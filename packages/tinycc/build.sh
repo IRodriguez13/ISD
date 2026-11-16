@@ -28,10 +28,9 @@ MUSL_LIB="${MUSL_LIB:-}"
 MUSL_INC="${MUSL_INC:-}"
 if [ -z "$MUSL_LIB" ]; then
 	for d in \
-		/usr/lib/x86_64-linux-musl \
-		/usr/x86_64-linux-musl/lib \
 		/usr/lib/"${TARGET_TRIPLE}" \
-		/lib/x86_64-linux-musl
+		/usr/"${TARGET_TRIPLE}"/lib \
+		/lib/"${TARGET_TRIPLE}"
 	do
 		if [ -f "${d}/libc.a" ] && [ -f "${d}/crt1.o" ]; then
 			MUSL_LIB="$d"
@@ -41,8 +40,8 @@ if [ -z "$MUSL_LIB" ]; then
 fi
 if [ -z "$MUSL_INC" ]; then
 	for d in \
-		/usr/include/x86_64-linux-musl \
-		/usr/x86_64-linux-musl/include \
+		/usr/include/"${TARGET_TRIPLE}" \
+		/usr/"${TARGET_TRIPLE}"/include \
 		/usr/include
 	do
 		if [ -f "${d}/stdio.h" ]; then
