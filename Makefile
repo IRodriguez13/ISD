@@ -209,8 +209,8 @@ fetch:
 build-packages: validate-config $(PKG_STAMPS)
 
 $(STAMP_PACKAGES)/%: $(STAMP_TOOLCHAIN) packages/%/build.sh scripts/stamp-run.sh \
-		scripts/toolchain.sh | $(STAMP_TOOLCHAIN)
-	@chmod +x packages/$*/build.sh scripts/toolchain.sh scripts/stamp-run.sh
+		scripts/toolchain.sh scripts/package-lock.sh | $(STAMP_TOOLCHAIN)
+	@chmod +x packages/$*/build.sh scripts/toolchain.sh scripts/stamp-run.sh scripts/package-lock.sh
 	@mkdir -p "$(STAMP_PACKAGES)" "$(PRODUCT_OUT)"
 	@scripts/stamp-run.sh $@ -- bash -c ' \
 		status=$$(ARCH=$(ARCH) bash -c "source scripts/toolchain.sh && toolchain_pkg_status $*"); \
@@ -220,6 +220,7 @@ $(STAMP_PACKAGES)/%: $(STAMP_TOOLCHAIN) packages/%/build.sh scripts/stamp-run.sh
 			blocked-by-package|blocked-by-kernel-ABI) \
 				echo "✗ $* requested but $$status"; exit 1 ;; \
 		esac; \
+		scripts/package-lock.sh "$(CURDIR)/packages/$*/.build.lock" -- env \
 		ARCH=$(ARCH) CC="$(CC)" MUSL_CC="$(CC)" PRODUCT_OUT="$(PRODUCT_OUT)" \
 		OUT="$(PRODUCT_OUT)" SYSROOT="$(SYSROOT)" \
 		ISD_JOBS="$(ISD_JOBS)" \

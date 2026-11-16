@@ -230,6 +230,20 @@ grep -q 'CONFIG_PKG_GNUMAKE=y' "$CFGG" && ok "D set GNUMAKE=y kept" || bad "D GN
 gotg=$(PROFILE=minimal ISD_CONFIG="$CFGG" bash scripts/resolve-packages.sh 2>/dev/null)
 echo " $gotg " | grep -q ' gnumake ' && ok "D resolve includes gnumake" || bad "D resolve: $gotg"
 
+
+if ! find packages/busybox/ir0-patches -type f -name '*.patch' -print -quit 2>/dev/null | grep -q . \
+	&& grep -q 'getutxent' packages/busybox/src/procps/uptime.c \
+	&& ! grep -q 'IR0 soft FB palette\|bb_get_applet_usage\|fopen("/var/run/utmp"' \
+		packages/busybox/src/{procps/uptime.c,coreutils/ls.c,include/libbb.h,libbb/appletlib.c,libbb/lineedit.c}; then
+	ok "D BusyBox stays upstream for IR0 ABI"
+else
+	bad "D BusyBox contains IR0-specific source edits"
+fi
+grep -q 'scripts/package-lock.sh' Makefile \
+	&& test -x scripts/package-lock.sh \
+	&& ok "D package source mutations serialize across ISAs" \
+	|| bad "D package source lock missing"
+
 grep -A1 '^clear:' Makefile | grep -q 'rm -rf "$(OUT_ARCH)"' \
 	&& grep -A1 '^clear:' Makefile | grep -q 'sysroot/$(ARCH)' \
 	&& ! grep -A1 '^clear:' Makefile | grep -q 'packages/' \

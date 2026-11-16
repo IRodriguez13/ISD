@@ -123,7 +123,10 @@ Remove patch when:
 
 ---
 
-## opendoas (legacy location)
+## Retired IR0-specific BusyBox edits
 
-Existing patches remain under `packages/opendoas/patches/` (pre-policy). Do not
-move without a dedicated review; new work uses `patches/opendoas/` if needed.
+The former BusyBox source edits for ash flag completion, direct `/var/run/utmp`
+parsing, and white directory colours were removed.  They made upstream programs
+behave differently for IR0, which violates the Linux-ABI contract.  The build
+performs a one-time source-cache migration for those known edits; new builds use
+the unmodified BusyBox 1.36.1 sources.

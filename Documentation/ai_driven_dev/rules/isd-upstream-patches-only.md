@@ -63,6 +63,6 @@ Applied on `make fetch` and before X autotools builds.
 ## Anti-patterns
 
 - Expanding `patches/` for every ISD convenience tweak.
-- Duplicating IR0 `ir0-patches` belts in ISD.
+- Reintroducing retired IR0-specific source edits in ISD packages.
 - Marking “upstream bug” without `addr2line`/backtrace on **vendor** symbols.
 - Leaving stale patches after upstream merge (retire per `Documentation/PATCHES.md`).

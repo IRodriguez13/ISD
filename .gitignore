@@ -8,6 +8,7 @@ packages/*/dist/
 packages/*/.DESTDIR/
 packages/*/build-*/
 packages/*/.build-*.lock
+packages/*/.build.lock
 packages/*/.linux-uapi/
 packages/*/configure-*.log
 packages/*/sysdeps*.log
