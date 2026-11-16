@@ -8,8 +8,9 @@ ISD_ARCHES := $(patsubst packages/arch/%/arch.conf,%,\
 	$(wildcard packages/arch/*/arch.conf))
 isd_arch_names = $(1) $(file <packages/arch/$(1)/aliases)
 ISD_ARCH_ALIASES := $(foreach a,$(ISD_ARCHES),$(call isd_arch_names,$(a)))
-ISD_PROFILE_ALIASES := appliance custom desktop desktop-console development \
-	minimal minimal-openrc minimal-sysvinit
+# Profiles are the directories profiles/<name>/ that carry a packages.txt.
+ISD_PROFILE_ALIASES := $(patsubst profiles/%/packages.txt,%,\
+	$(wildcard profiles/*/packages.txt))
 ISD_SELECTOR_GOALS := $(ISD_ARCH_ALIASES) $(ISD_PROFILE_ALIASES)
 ISD_ACTION_GOALS := $(filter-out $(ISD_SELECTOR_GOALS),$(MAKECMDGOALS))
 
