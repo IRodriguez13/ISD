@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/../../.." && pwd)"
 TREE="${1:?populate ROOTFS_TREE DISK}"
 DISK="${2:?populate ROOTFS_TREE DISK}"
 IR0_ROOT="${IR0_ROOT:-${ROOT}/../IR0}"

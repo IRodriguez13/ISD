@@ -3,8 +3,9 @@
 # Populate IR0_UAPI_SYSROOT from sibling IR0, a tarball, or a prefilled tree.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEST="${IR0_UAPI_SYSROOT:-${ROOT}/sysroot}"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+ARCH="${ARCH:-x86_64}"
+DEST="${IR0_UAPI_SYSROOT:-${ROOT}/sysroot/${ARCH}}"
 IR0_ROOT="${IR0_ROOT:-${ROOT}/../IR0}"
 
 mkdir -p "$DEST"

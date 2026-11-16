@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+_ROOT="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 ARCH="${ARCH:-x86_64}"
 case "$ARCH" in
@@ -120,7 +120,7 @@ PRODUCT_OUT="${PRODUCT_OUT:-${OUT_ARCH}/product}"
 TESTS_OUT="${TESTS_OUT:-${OUT_ARCH}/tests}"
 SMOKE_OUT="${SMOKE_OUT:-${OUT_ARCH}/smoke}"
 ROOTFS_OUT="${ROOTFS_OUT:-${OUT_ARCH}/rootfs}"
-IR0_UAPI_SYSROOT="${IR0_UAPI_SYSROOT:-${_ROOT}/sysroot}"
+IR0_UAPI_SYSROOT="${IR0_UAPI_SYSROOT:-${_ROOT}/sysroot/${ARCH}}"
 SYSROOT="${SYSROOT:-${IR0_UAPI_SYSROOT}}"
 
 # Compat aliases used by older recipes

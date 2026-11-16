@@ -8,7 +8,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 FULL="${PRODUCT_OUT}/busybox-full"
 if [ ! -x "$FULL" ]; then
-	FULL="${ROOT}/out/busybox-full"
+ARCH="${ARCH:-x86_64}"
+FULL="${ROOT}/out/${ARCH}/busybox-full"
 fi
 if [ ! -x "$FULL" ]; then
 	echo "✗ missing busybox-full (make build)" >&2

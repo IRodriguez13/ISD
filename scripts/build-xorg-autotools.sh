@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 name="${1:?package name required}"
 shift
@@ -52,7 +52,12 @@ PKG_CONFIG_LIBDIR="$pc" PYTHONPATH="$pythonpath" \
 	LIBS="${XORG_EXTRA_LIBS:-}" \
 	./configure --prefix=/usr --host="$TARGET_TRIPLE" \
 		--disable-shared --enable-static "$@"
-make -s -j"$(nproc)"
+jobs="${ISD_JOBS:-2}"
+case "$jobs" in
+*[!0-9]*|'') echo "✗ ISD_JOBS must be a positive integer" >&2; exit 2 ;;
+esac
+[ "$jobs" -gt 0 ] || { echo "✗ ISD_JOBS must be a positive integer" >&2; exit 2; }
+make -s -j"$jobs"
 make -s DESTDIR="$PREFIX" install
 find "$PREFIX/usr/lib" -maxdepth 1 -name '*.la' -delete 2>/dev/null || true
 echo "✓ ${name} OK → ${PREFIX}"

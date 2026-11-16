@@ -119,9 +119,10 @@ The console service applies `/etc/keymap` at start. Firstboot wizard asks
 `packages/<name>/src` only when missing (safe to re-run offline).
 `packages/doom/` uses a custom `fetch.sh` (sources from `IR0_ROOT/setup/doom`).
 
-`make clean` removes **`out/` only** (stamps + staged binaries). It never
-deletes `packages/*/src` or `packages/*/dist`. `make distclean` also drops
-unpacked `src/` but keeps downloaded tarballs in `dist/`.
+`make clear` (or its compatibility alias `make clean`) removes only the active
+ISA's `out/<arch>/` and `sysroot/<arch>/`; it never touches another ISA or
+`packages/*/{src,dist}`. `make distclean` also drops unpacked `src/`, while
+keeping downloaded tarballs in `dist/`.
 
 ## Doom IWAD
 

@@ -3,6 +3,7 @@
 # Build BusyBox variants with a package-local lock (no /tmp global lock).
 # Outputs land under out/<arch>/product/.
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1091
@@ -70,7 +71,7 @@ build_variant()
 	local bb_hostcflags="-Wno-unused-result -Wno-format-security"
 	make -C "$SRC" CC="$CC" -s clean >/dev/null 2>&1 || true
 	make -C "$SRC" CC="$CC" CFLAGS="$bb_cflags" HOSTCFLAGS="$bb_hostcflags" \
-		LDFLAGS="-no-pie" -s -j"$(nproc)"
+		LDFLAGS="-no-pie" -s -j"$JOBS"
 	cp -f "$SRC/busybox" "$out"
 	# Do not `file | grep -q`: pipefail + SIGPIPE is 141 on a first pack.
 	case "$(file -b "$out")" in

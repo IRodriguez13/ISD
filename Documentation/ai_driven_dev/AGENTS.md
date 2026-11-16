@@ -20,7 +20,7 @@ Canonical copies live in `Documentation/ai_driven_dev/` — not in `.cursor/` (g
 ## Verification (typical)
 
 ```bash
-make build ARCH=x86_64 PROFILE=desktop
+make x86-64 desktop build
 scripts/verify-xterm-patch-linux-baseline.sh   # when patches/xterm touched
 # From IR0_ROOT:
 make smoke-desktop-twm-resize PROFILE=desktop

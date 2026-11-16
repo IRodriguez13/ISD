@@ -15,7 +15,7 @@ SRC="${PKG}/src"
 DEPS="${PKG}/deps"
 PREFIX="${PKG}/prefix/${ARCH}"
 OUT_DIR="${PRODUCT_OUT}/stage-bin"
-JOBS="${ISD_BUILD_JOBS:-$(nproc 2>/dev/null || echo 2)}"
+JOBS="${ISD_JOBS:-2}"
 
 if [ ! -f "${SRC}/src/pack.c" ] || [ ! -d "${DEPS}/zlib" ] || [ ! -d "${DEPS}/libarchive" ]; then
 	echo "✗ missing pack-unpack sources/deps; run: make fetch" >&2

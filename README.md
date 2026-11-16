@@ -69,33 +69,37 @@ ISD image for `PROFILE` and boots that disk. Legacy inject remains behind
 
 ```bash
 export IR0_ROOT=../IR0
-make isd-defconfig                 # writes .isdconfig if missing
-make fetch
-make headers                       # or: IR0_UAPI_TARBALL=/path/ir0-uapi.tar
-make build ARCH=x86_64 PROFILE=minimal
-make rootfs-tree PROFILE=minimal
-make image-minix PROFILE=minimal   # → out/x86_64/images/minimal/disk.img
+make                                # instant help; no compiler or package probe
+make x86-64 minimal                 # build a complete x86-64 minimal image
+make arm minimal                    # same command shape for aarch64
+make x86-64 desktop plan            # inspect an exact selection first
+make menuconfig                     # compose an exact custom distribution
 ```
+
+The default is `make isd` → `x86-64 desktop`. Outputs are ISA-local under
+`out/<arch>/` and `sysroot/<arch>/`, so an x86-64 and aarch64 build cannot
+overwrite one another. `ISD_JOBS=2` is the conservative default for package
+sub-builds; raise it deliberately on hosts with enough memory.
 
 Extras (interactive — packages + BusyBox applets such as `top`):
 
 ```bash
-make isdconfig PROFILE=minimal
+make menuconfig
 # or non-interactive:
 #   python3 scripts/isdconfig.py set CONFIG_PKG_NANO=y
 #   python3 scripts/isdconfig.py set CONFIG_APPLET_TOP=y
-make isd-image PROFILE=minimal   # apply after changing .isdconfig
+make x86-64 minimal               # apply the saved minimal selection
 ```
 
-`profiles/*/packages.txt` is lean (busybox+runit). Defconfig enables nano, ncurses, opendoas, and applet `top` by default.
+`profiles/*/packages.txt` is lean (busybox+runit). Defconfig enables nano, ncurses, sudo, and applet `top` by default.
 
 ## Profiles
 
 | Profile | Role |
 |---------|------|
-| `minimal` | **Default** — first-boot user registration + doas + nano |
+| `minimal` | Canonical small image — first-boot user registration + sudo + nano |
 | `development` | Lab only (root autologin / fixtures) |
-| `desktop` | desktop policy + nano/ncurses |
+| `desktop` | **Default** — desktop policy + nano/ncurses |
 | `appliance` | Services only (busybox + runit) |
 
 Per-profile outputs:

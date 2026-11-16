@@ -27,4 +27,6 @@ at a real WAD — otherwise the build prompts to continue without Doom). Product
 ash (`ir0_full`) ships line editing with tab / username completion and the
 BusyBox-recommended companion flags.
 
-Default: `PROFILE=minimal`.
+The default command is `make isd`, which selects `PROFILE=desktop` on
+`ARCH=x86_64`. `minimal` remains the canonical small-image profile; select it
+explicitly with `make x86-64 minimal`.

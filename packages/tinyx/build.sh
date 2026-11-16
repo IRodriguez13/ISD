@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 PKG="${ROOT}/packages/tinyx"
@@ -34,7 +35,7 @@ LIBS="-lfreetype -lfontenc -lXau -lXdmcp -lm" \
   --disable-dpms \
   --with-int10=stub \
   --with-default-font-path=/usr/share/fonts/X11/misc,/usr/share/fonts/X11/75dpi
-make -s -j"$(nproc)" \
+make -s -j"$JOBS" \
   LDFLAGS="-all-static -no-pie $ld" \
   LIBS="-lfreetype -lfontenc -lz -lXau -lXdmcp -lm"
 server="$(find . -type f -name Xfbdev -perm -u+x | head -1)"

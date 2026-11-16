@@ -230,9 +230,10 @@ grep -q 'CONFIG_PKG_GNUMAKE=y' "$CFGG" && ok "D set GNUMAKE=y kept" || bad "D GN
 gotg=$(PROFILE=minimal ISD_CONFIG="$CFGG" bash scripts/resolve-packages.sh 2>/dev/null)
 echo " $gotg " | grep -q ' gnumake ' && ok "D resolve includes gnumake" || bad "D resolve: $gotg"
 
-grep -A1 '^clean:' Makefile | grep -q 'rm -rf out' \
-	&& ! grep -A1 '^clean:' Makefile | grep -q 'packages/' \
-	&& ok "D clean only removes out/" || bad "D clean deletes sources"
+grep -A1 '^clear:' Makefile | grep -q 'rm -rf "$(OUT_ARCH)"' \
+	&& grep -A1 '^clear:' Makefile | grep -q 'sysroot/$(ARCH)' \
+	&& ! grep -A1 '^clear:' Makefile | grep -q 'packages/' \
+	&& ok "D clear only removes selected ISA outputs" || bad "D clear scope unsafe"
 grep -A2 '^distclean:' Makefile | grep -q 'packages/\*/src' \
 	&& ok "D distclean may drop src/" || bad "D distclean policy missing"
 

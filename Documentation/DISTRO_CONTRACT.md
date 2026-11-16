@@ -52,7 +52,8 @@ rootfs tree → image-minix | rootfs-tar | (future: cpio, ext2, 9p)
 | `appliance` | Services without interactive login |
 | `desktop` | minimal + IR0-desktop prep (sudo, nano, ncurses, tinycc, gnumake, doom) |
 
-Default `PROFILE` is `minimal`.
+`make isd` defaults to `PROFILE=desktop` on x86-64.  Select the canonical
+minimal image explicitly with `make x86-64 minimal`.
 
 ## UAPI
 

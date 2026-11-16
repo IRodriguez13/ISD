@@ -3,6 +3,7 @@
 # Build static ncurses (narrowc) + terminfo database for xterm/ash/nano.
 
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1091
@@ -55,7 +56,7 @@ if ! CC="$CC" CFLAGS="-Os -fno-pie" LDFLAGS="-static -no-pie" \
 fi
 
 echo "  NCURSES Building..."
-make -s -j"$(nproc)"
+make -s -j"$JOBS"
 make -s DESTDIR="${PREFIX}" install.libs install.includes install.data
 # DESTDIR+/usr → flatten for consumers
 if [ -d "${PREFIX}/usr" ]; then

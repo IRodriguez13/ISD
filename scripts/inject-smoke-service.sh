@@ -10,7 +10,7 @@
 #   inject-smoke-service.sh disk.img fase52 stage-bin/runit_fase52_run \
 #       ../IR0/setup/pid1/fase52_harness bin/fase52-harness
 #   inject-smoke-service.sh --run-only disk.img xfbdev \
-#       out/stage-bin/runit_hostshare_payload_run
+#       out/x86_64/stage-bin/runit_hostshare_payload_run
 
 set -euo pipefail
 

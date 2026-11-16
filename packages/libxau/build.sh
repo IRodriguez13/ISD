@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 PKG="${ROOT}/packages/libxau"
@@ -14,7 +15,7 @@ PKG_CONFIG_LIBDIR="$PROTO/lib/pkgconfig:$PROTO/share/pkgconfig" \
 CC="$CC" AR="$AR" RANLIB="$RANLIB" CPPFLAGS="-I$PROTO/include" \
 CFLAGS="-Os -fno-pie" LDFLAGS="-static -no-pie" \
 ./configure --prefix=/usr --host="$TARGET_TRIPLE" --disable-shared --enable-static
-make -s -j"$(nproc)"
+make -s -j"$JOBS"
 make -s DESTDIR="$PREFIX" install
 find "$PREFIX/usr/lib" -maxdepth 1 -name '*.la' -delete
 test -f "$PREFIX/usr/lib/libXau.a"

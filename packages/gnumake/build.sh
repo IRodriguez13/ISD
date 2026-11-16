@@ -3,6 +3,7 @@
 # Build static musl GNU make for in-guest IR0 toolchain use.
 # Output: $PRODUCT_OUT/stage-bin/make
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1091
@@ -37,7 +38,7 @@ if ! CC="$CC" \
 fi
 
 echo "  GMAKE   Building..."
-make -s -j"$(nproc)"
+make -s -j"$JOBS"
 
 if [ -x make ]; then
 	install -m 0755 make "${OUT_DIR}/make"

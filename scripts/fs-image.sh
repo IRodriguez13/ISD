@@ -3,7 +3,7 @@
 # ISD root FS image backend — dispatch create/populate/verify/inspect by ROOT_FS.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 ACTION="${1:?usage: fs-image.sh create|populate|verify|inspect ROOT_FS [args…]}"
 ROOT_FS="${2:?usage: fs-image.sh ACTION ROOT_FS …}"
 shift 2

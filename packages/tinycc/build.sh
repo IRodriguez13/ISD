@@ -8,6 +8,7 @@
 #
 # Source trees under packages/tinycc/{src,dist} are never deleted here.
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1091
@@ -70,7 +71,7 @@ echo "  TCC     Configuring (${TARGET_TRIPLE}, musl lib=${MUSL_LIB})..."
 		--crtprefix="{B}:/usr/lib"
 	rm -f config-extra.mak
 	echo "  TCC     Building..."
-	make -s -j"$(nproc)"
+	make -s -j"$JOBS"
 )
 
 if [ ! -x "${SRC}/tcc" ]; then

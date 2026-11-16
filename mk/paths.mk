@@ -8,7 +8,7 @@
 #     stamps/{toolchain,uapi,packages,services,rootfs,images}/
 
 ARCH     ?= x86_64
-PROFILE  ?= minimal
+PROFILE  ?= desktop
 
 # Per-profile variant tree (content hash invalidates stale product/ stamps).
 VARIANT_ID := $(shell PROFILE=$(PROFILE) ARCH=$(ARCH) IR0_ROOT="$(IR0_ROOT)" \

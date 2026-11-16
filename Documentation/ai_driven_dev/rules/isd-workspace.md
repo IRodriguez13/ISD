@@ -27,10 +27,10 @@ Do **not** commit `.cursor/rules/` in this repository.
 ## Common targets
 
 ```bash
-make fetch PROFILE=desktop
-make build ARCH=x86_64 PROFILE=desktop
-make rootfs-tree PROFILE=desktop
-make image-minix PROFILE=desktop
+make x86-64 desktop fetch
+make x86-64 desktop build
+make x86-64 desktop rootfs-tree
+make x86-64 desktop image-minix
 ```
 
 IR0 integration (from `IR0_ROOT`): `make ensure-isd-disk PROFILE=desktop`,

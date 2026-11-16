@@ -2,16 +2,16 @@
 #
 # ISD — IR0 Software Distribution (stamp-based builder).
 #
-#   make isd-defconfig
-#   make fetch
-#   make headers                 # IR0_ROOT=../IR0  or IR0_UAPI_TARBALL=...
-#   make build ARCH=x86_64 PROFILE=minimal
-#   make rootfs-tree PROFILE=minimal
-#   make image-minix PROFILE=minimal
+#   make                         # fast help
+#   make isd                     # desktop root image (x86-64)
+#   make arm minimal             # aarch64 minimal root image
+#   make x86-64 desktop plan     # inspect an exact build
+#   make menuconfig              # interactive custom composition
 #
 # Kernel tree is only used for UAPI export and MINIX/ISO adapters.
 
 SHELL := /bin/bash
+.DEFAULT_GOAL := help
 
 # CDPATH makes Bash's `cd` print the selected directory.  ISD scripts capture
 # canonical paths with command substitutions, so never leak a host CDPATH into
@@ -21,8 +21,13 @@ unexport CDPATH
 IR0_ROOT ?= $(abspath $(CURDIR)/../IR0)
 DISK_MB  ?= 200
 HOME_DISK_MB ?= 64
-PROFILE  ?= minimal
+PROFILE  ?= desktop
 ARCH     ?= x86_64
+# Limit nested package builds on memory-constrained hosts.  The outer Make
+# still honours its own -j flag; increase ISD_JOBS deliberately if needed.
+ISD_JOBS ?= 2
+
+include mk/cli.mk
 
 # Ensure out/ exists before toolchain stamp generation.
 # Do not mkdir at parse time — it breaks IR0 release-check-clean fresh guard.
@@ -30,12 +35,16 @@ ifeq ($(origin CC),default)
   CC :=
 endif
 
+ifeq ($(ISD_NEEDS_PATHS),1)
 include mk/paths.mk
+endif
+ifeq ($(ISD_NEEDS_TOOLCHAIN),1)
 include mk/toolchain.mk
+endif
 
 # Resolved set: core ∪ profile packages.txt ∪ profile-local config. Pure UI
 # targets must not pay the package-graph cost before curses can even draw.
-ifneq ($(filter isdconfig menuconfig,$(MAKECMDGOALS)),)
+ifeq ($(ISD_NEEDS_RESOLUTION),0)
   RESOLVED_PACKAGES :=
 else
   RESOLVED_PACKAGES := $(shell PROFILE=$(PROFILE) bash $(CURDIR)/scripts/resolve-packages.sh)
@@ -67,25 +76,41 @@ ROOTFS_INPUTS := \
 	compat-links isd-defconfig isdconfig validate-config resolve-packages \
 	plan \
 	print-artifacts print-artifacts-mk update-machine image-ext2-home \
-	ai-dev-rules-install \
+	ai-dev-rules-install isd clear \
+	$(ISD_SELECTOR_GOALS) \
 	$(addprefix build-,$(RESOLVED_PACKAGES))
 
-all: build
+all: isd
+
+# One command produces the filesystem artifact selected by the profile.
+isd: image-root
+
+# Selectors are modifiers, not build variants.  With no explicit action they
+# resolve to `isd`, so both `make arm minimal` and `make x86-64 desktop` work.
+ifeq ($(ISD_IMPLICIT_ISD),1)
+$(ISD_SELECTOR_GOALS): isd
+endif
+$(ISD_SELECTOR_GOALS):
+	@:
 
 help:
-	@echo "ISD — IR0 Software Distribution (stamp-based)"
-	@echo "  ARCH=$(ARCH)  PROFILE=$(PROFILE)  IR0_ROOT=$(IR0_ROOT)"
-	@echo "  DISK=$(DISK)"
-	@echo "  RESOLVED_PACKAGES=$(RESOLVED_PACKAGES)"
-	@echo "  Targets: isd-defconfig isdconfig validate-config resolve-packages plan"
-	@echo "           fetch headers build toolchain-check elf-audit"
-	@echo "           rootfs-tree rootfs-tar image-minix image-ext2-root image rootfs"
-	@echo "           profiles-check personal-data-check rootfs-check release-check"
-	@echo "           ai-dev-rules-install clean distclean"
-	@echo "  fetch:     download missing packages/*/dist + unpack packages/*/src"
-	@echo "             (skips when already present — safe to re-run)"
-	@echo "  clean:     remove out/ only (build artefacts); keeps packages/*/src+dist"
-	@echo "  distclean: clean + delete packages/*/src (keeps downloaded dist/ tarballs)"
+	@echo "ISD — IR0 userspace builder"
+	@echo ""
+	@echo "  make                         show this help (no probes)"
+	@echo "  make isd                     build desktop for x86-64"
+	@echo "  make x86-64 minimal          build the x86-64 minimal image"
+	@echo "  make arm minimal             build the aarch64 minimal image"
+	@echo "  make x86-64 desktop plan     inspect packages and artifact paths"
+	@echo "  make menuconfig              choose an exact custom distribution"
+	@echo "  make clear [arm|x86-64]      remove outputs for one architecture"
+	@echo ""
+	@echo "Profiles: desktop (default), desktop-console, minimal, minimal-openrc,"
+	@echo "          minimal-sysvinit, development, appliance, custom"
+	@echo "Actions:  isd, fetch, build, plan, image-root, rootfs-tree, menuconfig,"
+	@echo "          package-catalog-check, release-check, clear"
+	@echo ""
+	@echo "Each build is isolated under out/<arch>/ and sysroot/<arch>/; package"
+	@echo "recipes and downloads remain shared, read-only inputs."
 
 check-ir0-interface:
 	@chmod +x scripts/check-ir0-interface.sh scripts/ir0-public-tool.sh
@@ -196,8 +221,9 @@ $(STAMP_PACKAGES)/%: $(STAMP_TOOLCHAIN) packages/%/build.sh scripts/stamp-run.sh
 				echo "✗ $* requested but $$status"; exit 1 ;; \
 		esac; \
 		ARCH=$(ARCH) CC="$(CC)" MUSL_CC="$(CC)" PRODUCT_OUT="$(PRODUCT_OUT)" \
-			OUT="$(PRODUCT_OUT)" SYSROOT="$(SYSROOT)" \
-			packages/$*/build.sh'
+		OUT="$(PRODUCT_OUT)" SYSROOT="$(SYSROOT)" \
+		ISD_JOBS="$(ISD_JOBS)" \
+		packages/$*/build.sh'
 
 # nano requires ncurses prefix from the ncurses stamp.
 ifneq ($(filter nano,$(RESOLVED_PACKAGES)),)
@@ -341,15 +367,17 @@ build-tests: $(STAMP_TOOLCHAIN) $(STAMP_UAPI)
 		scripts/build-services.sh smoke
 	@$(MAKE) -s -C tests/host run
 
-# Legacy paths expected by the kernel tree (symlinks into out/<arch>/product).
+# Architecture-local compatibility links.  Do not create ambiguous out/bin or
+# out/product aliases: a parallel arm/x86-64 build must never change what a
+# host-side smoke uses.
 compat-links: build-packages build-services
-	@mkdir -p out "$(SMOKE_OUT)" "$(TESTS_OUT)"
-	@ln -sfn "$(PRODUCT_OUT)/busybox-full" out/busybox-full
-	@ln -sfn "$(PRODUCT_OUT)/busybox-auth" out/busybox-auth
-	@ln -sfn "$(PRODUCT_OUT)/bin" out/bin
-	@ln -sfn "$(PRODUCT_OUT)/stage-bin" out/stage-bin
-	@ln -sfn "$(SMOKE_OUT)" out/smoke
-	@ln -sfn "$(PRODUCT_OUT)" out/product
+	@mkdir -p "$(OUT_ARCH)" "$(SMOKE_OUT)" "$(TESTS_OUT)"
+	@ln -sfn "$(PRODUCT_OUT)/busybox-full" "$(OUT_ARCH)/busybox-full"
+	@ln -sfn "$(PRODUCT_OUT)/busybox-auth" "$(OUT_ARCH)/busybox-auth"
+	@ln -sfn "$(PRODUCT_OUT)/bin" "$(OUT_ARCH)/bin"
+	@ln -sfn "$(PRODUCT_OUT)/stage-bin" "$(OUT_ARCH)/stage-bin"
+	@ln -sfn "$(SMOKE_OUT)" "$(OUT_ARCH)/smoke"
+	@ln -sfn "$(PRODUCT_OUT)" "$(OUT_ARCH)/product"
 
 toolchain-check: $(STAMP_TOOLCHAIN)
 	@chmod +x scripts/toolchain.sh
@@ -375,7 +403,7 @@ personal-data-check:
 
 profiles-check: compat-links
 	@chmod +x scripts/profiles-check.sh
-	@PRODUCT_OUT="$(PRODUCT_OUT)" scripts/profiles-check.sh
+	@ARCH="$(ARCH)" PRODUCT_OUT="$(PRODUCT_OUT)" scripts/profiles-check.sh
 
 # Recipes deliberately remain at packages/<name>/ so source/dist caches and
 # stamp paths stay stable.  The catalog gives the configurator and developers
@@ -452,7 +480,7 @@ image-root: $(STAMP_ROOTFS) scripts/fs-image.sh scripts/stamp-run.sh \
 	*) echo "✗ unknown ROOT_FS=$$ROOT_FS"; exit 2 ;; esac; \
 	mkdir -p "$$(dirname "$$STAMP")" "$(IMAGE_DIR)"; \
 	if [ "$$ROOT_FS" = minix ] && [ ! -f "$$DISK" ]; then \
-		$(MAKE) -s disk; \
+		$(MAKE) -s disk ARCH="$(ARCH)" PROFILE="$(PROFILE)" IR0_ROOT="$(IR0_ROOT)"; \
 	fi; \
 	scripts/stamp-run.sh "$$STAMP" -- \
 		scripts/fs-image.sh populate "$$ROOT_FS" "$(ROOTFS_DIR)" "$$DISK"
@@ -481,15 +509,19 @@ release-check: check-ir0-interface toolchain-check elf-audit uapi-audit profiles
 	@echo "✓ release-check OK PROFILE=$(PROFILE) ARCH=$(ARCH)"
 
 # Build artefacts only. Never delete packages/*/src or packages/*/dist.
-clean:
-	@rm -rf out
-	@echo "✓ clean (out/ removed; packages/*/src and dist/ kept)"
+# `clear`/`clean` deliberately affect one ISA; use distclean only when the
+# sources themselves must be discarded.
+clear:
+	@rm -rf "$(OUT_ARCH)" "$(CURDIR)/sysroot/$(ARCH)"
+	@echo "✓ clear ARCH=$(ARCH) (out/$(ARCH) + sysroot/$(ARCH) removed)"
+
+clean: clear
 
 # Drop unpacked sources too (re-fetch or re-unpack from dist/ next time).
 # Downloaded tarballs under packages/*/dist are preserved.
 distclean: clean
-	@rm -rf $(SYSROOT) packages/*/src
-	@echo "✓ distclean (src/ removed; dist/ tarballs kept)"
+	@rm -rf packages/*/src
+	@echo "✓ distclean ARCH=$(ARCH) (src/ removed; dist/ tarballs kept)"
 
 ai-dev-rules-install:
 	@python3 scripts/sync_ai_dev_rules.py install

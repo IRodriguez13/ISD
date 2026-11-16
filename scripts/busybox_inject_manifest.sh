@@ -11,7 +11,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IR0_ROOT="${IR0_ROOT:-$(cd "${ROOT}/../IR0" 2>/dev/null && pwd || true)}"
 
 DISK="${1:?usage: busybox_inject_manifest.sh DISK [BUSYBOX_BIN] [MANIFEST]}"
-BUSYBOX_BIN="${2:-${FASE50_BUSYBOX_BIN:-$ROOT/out/busybox-full}}"
+ARCH="${ARCH:-x86_64}"
+BUSYBOX_BIN="${2:-${FASE50_BUSYBOX_BIN:-$ROOT/out/${ARCH}/busybox-full}}"
 MANIFEST="${3:-$ROOT/packages/busybox/required_applets.txt}"
 INJECT="python3 ${IR0_ROOT}/scripts/inject_init_minix.py"
 
@@ -75,7 +76,7 @@ if [[ -z "$FORCE_POWER_BIN" ]]; then
 	for cand in \
 		"${PRODUCT_OUT:-${ROOT}/out/${ARCH:-x86_64}/product}/stage-bin/ir0_force_power" \
 		"${ROOT}/out/${ARCH:-x86_64}/product/stage-bin/ir0_force_power" \
-		"${ROOT}/out/stage-bin/ir0_force_power"
+		"${ROOT}/out/${ARCH}/stage-bin/ir0_force_power"
 	do
 		if [[ -f "$cand" ]]; then
 			FORCE_POWER_BIN="$cand"

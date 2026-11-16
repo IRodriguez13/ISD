@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 PKG="${ROOT}/packages/zlib"
@@ -23,7 +24,7 @@ if grep -q -- '-DNO_vsnprintf' configure.log; then
 	echo "✗ zlib refused: configure selected unsafe vsprintf fallback" >&2
 	exit 1
 fi
-make -s -j"$(nproc)" libz.a
+make -s -j"$JOBS" libz.a
 mkdir -p "$PREFIX/lib/pkgconfig" "$PREFIX/include"
 install -m 0644 libz.a "$PREFIX/lib/libz.a"
 install -m 0644 zlib.h zconf.h "$PREFIX/include/"

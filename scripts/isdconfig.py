@@ -610,7 +610,7 @@ def format_plan(plan: dict) -> str:
         "",
         f"Unavailable:  {', '.join(missing) if missing else 'none'}",
         f"Config hash:  {plan.get('config_hash')}",
-        f"Status:       {plan.get('status')}",
+        f"Packages:     {plan.get('status')} (host toolchain not probed)",
     ]
     if errors:
         lines.append("Errors:")

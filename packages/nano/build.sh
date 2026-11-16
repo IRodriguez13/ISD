@@ -3,6 +3,7 @@
 # Build GNU nano (tiny) static musl against packages/ncurses.
 
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck disable=SC1091
@@ -65,10 +66,10 @@ if ! CC="$CC" \
 fi
 
 echo "  NANO    Building lib + src..."
-make -s -j"$(nproc)" -C lib \
+make -s -j"$JOBS" -C lib \
 	CFLAGS="$NANO_CFLAGS" \
 	CPPFLAGS="$NANO_CPPFLAGS"
-make -s -j"$(nproc)" -C src \
+make -s -j"$JOBS" -C src \
 	CFLAGS="$NANO_CFLAGS" \
 	CPPFLAGS="$NANO_CPPFLAGS" \
 	LDFLAGS="$NANO_LDFLAGS"

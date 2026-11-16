@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
+JOBS="${ISD_JOBS:-2}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${ROOT}/scripts/toolchain.sh"
 PKG="${ROOT}/packages/libxfont"
@@ -25,7 +26,7 @@ FREETYPE_CFLAGS="-I${ROOT}/packages/freetype/prefix/${ARCH}/usr/include/freetype
 FREETYPE_LIBS="-lfreetype" \
 ./configure --prefix=/usr --host="$TARGET_TRIPLE" --disable-shared --enable-static \
   --disable-devel-docs --without-xmlto --without-fop
-make -s -j"$(nproc)"
+make -s -j"$JOBS"
 make -s DESTDIR="$PREFIX" install
 find "$PREFIX/usr/lib" -maxdepth 1 -name '*.la' -delete
 test -f "$PREFIX/usr/lib/libXfont.a"

@@ -27,7 +27,7 @@
 
 | Item | When |
 |------|------|
-| OpenDoas | Profiles that declare an admin user / wheel |
+| sudo | Profiles that declare an admin user / wheel |
 | Static network config | `NETWORK_MODE=static` when ABI allows |
 | Guest man pages | Injected from kernel `prepare-guest-mandocs` when available |
 
@@ -36,7 +36,7 @@
 | Item | Reason |
 |------|--------|
 | nano / ncurses | Desktop / development only |
-| OpenDoas by default | No admin user until firstboot; package optional |
+| sudo by default | No admin user until firstboot; package optional |
 | Graphics / Doom | IR0-desktop / smokes |
 | TCC / GNU make | Devtools overlay |
 | KTM / FASE / hostshare payloads | `out/<arch>/smoke/` only |

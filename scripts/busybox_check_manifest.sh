@@ -7,7 +7,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BUSYBOX_BIN="${1:-${FASE50_BUSYBOX_BIN:-$ROOT/out/busybox-full}}"
+ARCH="${ARCH:-x86_64}"
+BUSYBOX_BIN="${1:-${FASE50_BUSYBOX_BIN:-$ROOT/out/${ARCH}/busybox-full}}"
 MANIFEST="${2:-$ROOT/packages/busybox/required_applets.txt}"
 
 if [[ ! -f "$BUSYBOX_BIN" ]]; then

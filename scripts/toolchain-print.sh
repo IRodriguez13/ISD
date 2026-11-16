@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Print Make assignments for the resolved toolchain.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 # shellcheck disable=SC1091
 source "${ROOT}/scripts/toolchain.sh"
 cat <<EOF
