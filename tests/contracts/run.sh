@@ -422,6 +422,20 @@ grep -q '^update-machine:' Makefile && ok "H update-machine target" || bad "H no
 vid=$(ARCH=x86_64 PROFILE=minimal bash scripts/compute-variant-id.sh)
 echo "$vid" | grep -q '^minimal-[0-9a-f]\{12\}$' \
 	&& ok "H variant id content hash" || bad "H variant id: $vid"
+# Re-exporting identical headers (new UAPI stamp, same content) must keep the
+# variant: otherwise every package rebuilds into a fresh variants/ tree.
+uapi_stamp=out/x86_64/stamps/uapi/headers
+if [ -f "$uapi_stamp" ]; then
+	cp -p "$uapi_stamp" "$TMP/uapi-stamp"
+	printf 'ok\n2000-01-01T00:00:00Z\n' > "$uapi_stamp"
+	vid_reexport=$(ARCH=x86_64 PROFILE=minimal bash scripts/compute-variant-id.sh)
+	cp -p "$TMP/uapi-stamp" "$uapi_stamp"
+	[ "$vid" = "$vid_reexport" ] \
+		&& ok "H variant id follows UAPI content, not stamp time" \
+		|| bad "H variant id changed on identical UAPI re-export ($vid -> $vid_reexport)"
+else
+	ok "H variant id UAPI re-export (skipped — no UAPI export yet)"
+fi
 
 # resolve-packages must fail on unknown profile (no silent busybox+runit fallback).
 set +e
