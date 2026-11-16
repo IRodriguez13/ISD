@@ -1,42 +1,59 @@
 # <package> <status>; the first matching row wins and `*` is the default.
 # Statuses: supported buildable blocked-by-package blocked-by-kernel-ABI
-# unsupported.
+# unsupported. `blocked-by-package` recipes need recipe or dependency work on
+# AArch64 before they can be attempted; unlisted recipes are unsupported.
+# unsupported. `blocked-by-package` recipes need recipe or dependency work on
+# AArch64 before they can be attempted; unlisted recipes are unsupported.
+# unsupported. `blocked-by-package` recipes need recipe or dependency work on
+# AArch64 before they can be attempted; unlisted recipes are unsupported.
 busybox              buildable
-runit                buildable
+font-adobe-75dpi     buildable
 font-cursor-misc     buildable
 font-misc-misc       buildable
-font-adobe-75dpi     buildable
-opendoas             blocked-by-package
-sudo                 blocked-by-package
-ncurses              blocked-by-package
-nano                 blocked-by-package
-tinycc               blocked-by-package
-gnumake              blocked-by-package
+runit                buildable
 doom                 blocked-by-package
+freetype             blocked-by-package
+gnumake              blocked-by-package
 iv                   blocked-by-package
-pack-extract         blocked-by-package
-xorgproto            blocked-by-package
-xcb-proto            blocked-by-package
-xtrans               blocked-by-package
-libxau               blocked-by-package
-libxdmcp             blocked-by-package
-libxcb               blocked-by-package
-libx11               blocked-by-package
-libxext              blocked-by-package
+libfontenc           blocked-by-package
 libice               blocked-by-package
 libsm                blocked-by-package
-libxt                blocked-by-package
-libxmu               blocked-by-package
+libx11               blocked-by-package
+libxau               blocked-by-package
+libxaw               blocked-by-package
+libxcb               blocked-by-package
+libxcursor           blocked-by-package
+libxdmcp             blocked-by-package
+libxext              blocked-by-package
 libxfixes            blocked-by-package
-libxi                blocked-by-package
-libxtst              blocked-by-package
-zlib                 blocked-by-package
-freetype             blocked-by-package
-libfontenc           blocked-by-package
 libxfont             blocked-by-package
+libxi                blocked-by-package
+libxmu               blocked-by-package
+libxpm               blocked-by-package
+libxrender           blocked-by-package
+libxt                blocked-by-package
+libxtst              blocked-by-package
+nano                 blocked-by-package
+ncurses              blocked-by-package
+opendoas             blocked-by-package
+pack-extract         blocked-by-package
+sudo                 blocked-by-package
+tinycc               blocked-by-package
 tinyx                blocked-by-package
+twm                  blocked-by-package
 xauth                blocked-by-package
-xinit                blocked-by-package
+xbitmaps             blocked-by-package
 xcalc                blocked-by-package
+xcb-proto            blocked-by-package
+xclock               blocked-by-package
+xeyes                blocked-by-package
+xinit                blocked-by-package
+xload                blocked-by-package
+xlogo                blocked-by-package
 xmessage             blocked-by-package
+xorgproto            blocked-by-package
+xsetroot             blocked-by-package
+xterm                blocked-by-package
+xtrans               blocked-by-package
+zlib                 blocked-by-package
 *                    unsupported

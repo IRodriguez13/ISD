@@ -47,6 +47,16 @@ IR0_TOOLCHAIN_OPTIONAL=1 ARCH=amd64 bash -c 'source scripts/toolchain.sh; \
 	  x86_64/x86_64-linux-musl/supported ]' \
 	&& ok "R toolchain resolves ISA facts through the registry" \
 	|| bad "R toolchain ISA facts"
+isa_keys=$(grep -lE '^(ARCHES|STATUS_[A-Za-z0-9_]+)=' packages/*/package.conf 2>/dev/null || true)
+[ -z "$isa_keys" ] && ok "R recipes carry no per-ISA status (packages/arch owns it)" \
+	|| bad "R per-ISA keys in recipes: $(echo $isa_keys)"
+support_bad=$(awk -v ok_st=" supported buildable blocked-by-package blocked-by-kernel-ABI unsupported " '
+	/^[[:space:]]*(#|$)/ { next }
+	index(ok_st, " " $2 " ") == 0 { print FILENAME ": bad status " $2; next }
+	$1 != "*" && system("test -f packages/" $1 "/build.sh") != 0 { print FILENAME ": no recipe " $1 }
+	' packages/arch/*/support)
+[ -z "$support_bad" ] && ok "R support tables name real recipes and valid statuses" \
+	|| bad "R support tables: $support_bad"
 isa_branches=$(grep -rnE 'case "?\$\{?ARCH|ifn?eq \(\$\(ARCH\)|"\$\{?ARCH\}?" *!?=+ *"?(x86|aarch|arm|amd)' \
 	scripts mk Makefile packages/*/build.sh packages/*/fetch.sh 2>/dev/null || true)
 [ -z "$isa_branches" ] && ok "R no ISA branches outside packages/arch" \
