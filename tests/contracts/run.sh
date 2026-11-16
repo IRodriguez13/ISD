@@ -323,16 +323,26 @@ rc=$?
 set -e
 [ "$rc" -ne 0 ] && ok "D FORBIDDEN_DISABLE BUSYBOX" || bad "D allowed disable busybox"
 
-# --- E: UAPI independence (package stamps ↔ toolchain only) ------------------
-echo "-- E UAPI independence --"
-# Package stamp rule must not list STAMP_UAPI as a prerequisite.
-pkg_rule=$(awk '/^\$\(STAMP_PACKAGES\)\/%:/,/^[^[:space:]#]/{print}' Makefile | head -5)
-echo "$pkg_rule" | grep -q 'STAMP_TOOLCHAIN' && ok "E pkg ← toolchain" || bad "E pkg rule: $pkg_rule"
-if echo "$pkg_rule" | grep -q 'STAMP_UAPI'; then
-	bad "E pkg depends on STAMP_UAPI"
+# --- E: UAPI ordering (package stamps ↔ toolchain; UAPI order-only) ---------
+echo "-- E UAPI ordering --"
+# Recipes such as BusyBox compile against the exported IR0 UAPI, so the
+# headers must exist first; but a header re-export must not rebuild every
+# package by mtime (the variant id tracks UAPI content instead).
+pkg_rule=$(make -s -pn x86-64 minimal build-runit 2>/dev/null \
+	| grep -m1 -E '/packages/%:' || true)
+pkg_normal=${pkg_rule%%|*}
+pkg_order=""
+case "$pkg_rule" in *'|'*) pkg_order=${pkg_rule#*|} ;; esac
+echo "$pkg_normal" | grep -q 'stamps/toolchain/ok' && ok "E pkg ← toolchain" \
+	|| bad "E pkg rule: $pkg_rule"
+if echo "$pkg_normal" | grep -q 'stamps/uapi/'; then
+	bad "E pkg rebuilds on every UAPI export"
 else
-	ok "E pkg independent of UAPI"
+	ok "E pkg rebuild independent of UAPI mtime"
 fi
+echo "$pkg_order" | grep -q 'stamps/uapi/headers' \
+	&& ok "E pkg built after UAPI export (order-only)" \
+	|| bad "E pkg may build before the UAPI export: $pkg_rule"
 grep -A2 '^\$(STAMP_SERVICES):' Makefile | grep -q 'STAMP_UAPI' \
 	&& ok "E services ← UAPI" || bad "E services missing UAPI dep"
 grep -q 'env -u ARCH make' scripts/install-uapi.sh \

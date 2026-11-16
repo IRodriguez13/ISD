@@ -205,12 +205,15 @@ fetch:
 	@set -e; pkgs="$$(PROFILE=$(PROFILE) scripts/resolve-packages.sh)"; \
 	for p in $$pkgs; do scripts/fetch-package.sh "$$p"; done
 
-# --- packages: depend on toolchain ONLY (not UAPI) ---------------------------
+# --- packages: rebuild on toolchain changes; UAPI is order-only --------------
+# Recipes may compile against the exported IR0 UAPI (BusyBox, X11), so it must
+# exist before any package builds.  A header re-export must not rebuild every
+# package by mtime: VARIANT_ID carries the UAPI fingerprint instead.
 
 build-packages: validate-config $(PKG_STAMPS)
 
 $(STAMP_PACKAGES)/%: $(STAMP_TOOLCHAIN) packages/%/build.sh scripts/stamp-run.sh \
-		scripts/toolchain.sh scripts/package-lock.sh | $(STAMP_TOOLCHAIN)
+		scripts/toolchain.sh scripts/package-lock.sh | $(STAMP_UAPI)
 	@chmod +x packages/$*/build.sh scripts/toolchain.sh scripts/stamp-run.sh scripts/package-lock.sh
 	@mkdir -p "$(STAMP_PACKAGES)" "$(PRODUCT_OUT)"
 	@scripts/stamp-run.sh $@ -- bash -c ' \
