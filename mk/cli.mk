@@ -55,16 +55,20 @@ endif
 # Keep introspection and completion independent from a cross compiler.  The
 # paths layer only calculates ISA-local names; the toolchain layer is loaded
 # exclusively by actions that actually compile or stage a root filesystem.
-ISD_PATH_GOALS := isd all headers build build-packages build-services \
-	build-tests compat-links toolchain-check elf-audit uapi-audit profiles-check \
-	rootfs-tree rootfs-manifest rootfs-tar image-minix image-ext2-root image-root \
-	image rootfs image-ext2-home rootfs-check release-check isd-verify-rootfs \
-	update-machine clear clean distclean disk
-ISD_TOOLCHAIN_GOALS := isd all headers build build-packages build-services \
-	build-tests compat-links toolchain-check elf-audit uapi-audit profiles-check \
-	rootfs-tree rootfs-manifest rootfs-tar image-minix image-ext2-root image-root \
-	image rootfs image-ext2-home rootfs-check release-check isd-verify-rootfs
-ISD_RESOLVE_GOALS := $(ISD_TOOLCHAIN_GOALS) fetch
+# Only goals whose graph reaches the
+# package stamps resolve the profile, so `make headers`, toolchain and UAPI
+# checks stay cheap and keep working while a profile is being edited.
+# build-<pkg> builds one resolved package; build-services/-tests do not.
+ISD_PACKAGE_GOALS := $(filter-out build-packages build-services build-tests,\
+	$(filter build-%,$(MAKECMDGOALS)))
+ISD_RESOLVE_GOALS := isd all build build-packages compat-links elf-audit \
+	profiles-check rootfs-tree rootfs-manifest rootfs-tar image-minix \
+	image-ext2-root image-root image rootfs rootfs-check release-check \
+	isd-verify-rootfs $(ISD_PACKAGE_GOALS)
+ISD_TOOLCHAIN_GOALS := $(ISD_RESOLVE_GOALS) headers build-services build-tests \
+	toolchain-check uapi-audit image-ext2-home
+ISD_PATH_GOALS := $(ISD_TOOLCHAIN_GOALS) update-machine clear clean distclean \
+	disk
 ISD_NEEDS_PATHS := 0
 ISD_NEEDS_TOOLCHAIN := 0
 ISD_NEEDS_RESOLUTION := 0

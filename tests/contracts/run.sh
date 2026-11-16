@@ -72,6 +72,12 @@ echo "$alias_art" | grep -qx 'ARCH=aarch64' \
 	&& make -s -n ARCH=amd64 headers >/dev/null 2>&1 \
 	&& ok "R ARCH aliases resolve to the canonical ISA tree" \
 	|| bad "R ARCH alias split tree: $alias_art"
+make -s -n x86-64 minimal headers PROFILE=not-a-profile >/dev/null 2>&1 \
+	&& ok "R headers does not resolve the package profile" \
+	|| bad "R headers resolves the package profile"
+make -s -n x86-64 minimal build-runit >/dev/null 2>&1 \
+	&& ok "R build-<pkg> resolves the profile on its own" \
+	|| bad "R build-<pkg> has no rule without another resolving goal"
 isa_branches=$(grep -rnE 'case "?\$\{?ARCH|ifn?eq \(\$\(ARCH\)|"\$\{?ARCH\}?" *!?=+ *"?(x86|aarch|arm|amd)' \
 	scripts mk Makefile packages/*/build.sh packages/*/fetch.sh 2>/dev/null || true)
 [ -z "$isa_branches" ] && ok "R no ISA branches outside packages/arch" \
