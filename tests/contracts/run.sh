@@ -66,6 +66,12 @@ set -e
 	|| bad "R arm minimal plan rc=$arm_plan_rc: $arm_plan"
 make -s x86-64 minimal plan >/dev/null \
 	&& ok "R x86-64 minimal plan stays buildable" || bad "R x86-64 minimal plan"
+alias_art=$(make -s print-artifacts ARCH=arm64 PROFILE=minimal 2>&1 || true)
+echo "$alias_art" | grep -qx 'ARCH=aarch64' \
+	&& ! echo "$alias_art" | grep -q '/out/arm64/' \
+	&& make -s -n ARCH=amd64 headers >/dev/null 2>&1 \
+	&& ok "R ARCH aliases resolve to the canonical ISA tree" \
+	|| bad "R ARCH alias split tree: $alias_art"
 isa_branches=$(grep -rnE 'case "?\$\{?ARCH|ifn?eq \(\$\(ARCH\)|"\$\{?ARCH\}?" *!?=+ *"?(x86|aarch|arm|amd)' \
 	scripts mk Makefile packages/*/build.sh packages/*/fetch.sh 2>/dev/null || true)
 [ -z "$isa_branches" ] && ok "R no ISA branches outside packages/arch" \

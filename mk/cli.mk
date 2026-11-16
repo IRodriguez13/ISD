@@ -24,6 +24,15 @@ ARCH := $(strip $(ISD_SELECTED_ARCHES))
 endif
 endif
 
+# ARCH= may name an alias too (ARCH=arm64, ARCH=amd64): every output path and
+# registry lookup uses the canonical ISA so one build never splits across
+# out/<alias>/ and out/<isa>/.
+ISD_ARCH_CANONICAL := $(strip $(foreach a,$(ISD_ARCHES),\
+	$(if $(filter $(ARCH),$(call isd_arch_names,$(a))),$(a))))
+ifneq ($(ISD_ARCH_CANONICAL),)
+override ARCH := $(ISD_ARCH_CANONICAL)
+endif
+
 ISD_SELECTED_PROFILES := $(filter $(ISD_PROFILE_ALIASES),$(MAKECMDGOALS))
 ifneq ($(words $(ISD_SELECTED_PROFILES)),0)
 ifneq ($(words $(ISD_SELECTED_PROFILES)),1)
