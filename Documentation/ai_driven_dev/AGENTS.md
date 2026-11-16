@@ -20,10 +20,12 @@ Canonical copies live in `Documentation/ai_driven_dev/` — not in `.cursor/` (g
 ## Verification (typical)
 
 ```bash
+make help                                      # public targets (generated)
+make isd-contracts IR0_ROOT=../IR0             # host contract suite
 make x86-64 desktop build
 scripts/verify-xterm-patch-linux-baseline.sh   # when patches/xterm touched
-# From IR0_ROOT:
-make smoke-desktop-twm-resize PROFILE=desktop
+# From IR0_ROOT (boots the disk named by `make print-artifacts`):
+make run x86-64 PROFILE=desktop
 ```
 
 ## Rule index

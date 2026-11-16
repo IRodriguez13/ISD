@@ -33,8 +33,12 @@ make x86-64 desktop rootfs-tree
 make x86-64 desktop image-minix
 ```
 
-IR0 integration (from `IR0_ROOT`): `make ensure-isd-disk PROFILE=desktop`,
-`make smoke-desktop-twm-resize PROFILE=desktop`.
+`make help` is generated from `mk/targets.mk`; a new target must be classified
+there (public with a description, internal, or deprecated alias) or the
+contract suite fails. ISA facts live in `packages/arch/<isa>/`.
+
+IR0 integration: IR0 reads `make print-artifacts` and boots the image with
+`make run x86-64 PROFILE=desktop` from `IR0_ROOT`.
 
 ## Policy pointers
 

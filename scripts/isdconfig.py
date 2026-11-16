@@ -351,8 +351,7 @@ def refuse_enable_pkg(short: str, profile: str = "minimal") -> str | None:
     d = pkg_dirname(short)
     if not recipe_ready(short):
         return (
-            f"CONFIG_PKG_{short}=y is not buildable: packages/{d}/ not packaged yet "
-            f"(interim: IR0_LEGACY_USERSPACE=1 make load-userspace-devtools)"
+            f"CONFIG_PKG_{short}=y is not buildable: packages/{d}/ not packaged yet"
         )
     if short == "DOOM":
         if find_doom_iwad() is None:
@@ -952,8 +951,7 @@ def cmd_menu(path: Path, profile: str) -> int:
     if rc == 0:
         print("")
         print("Next: rebuild the image so packages/applets apply:")
-        print(f"  make isd-image PROFILE={profile}")
-        print(f"  # or from IR0: make first-boot PROFILE={profile}")
+        print(f"  make isd PROFILE={profile}")
         cmd_show(path, profile)
     return rc
 
