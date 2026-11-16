@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-only
-# Print Make assignments for the resolved toolchain.
+# Print Make assignments for the resolved toolchain.  Output paths are owned
+# by mk/paths.mk (variant-scoped); never re-emit them here.
 set -euo pipefail
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 # shellcheck disable=SC1091
@@ -13,10 +14,5 @@ RANLIB := ${RANLIB}
 STRIP := ${STRIP}
 READELF := ${READELF}
 OBJCOPY := ${OBJCOPY}
-PRODUCT_OUT := ${PRODUCT_OUT}
-TESTS_OUT := ${TESTS_OUT}
-SMOKE_OUT := ${SMOKE_OUT}
-ROOTFS_OUT := ${ROOTFS_OUT}
-OUT_ARCH := ${OUT_ARCH}
 MUSL_CC := ${CC}
 EOF

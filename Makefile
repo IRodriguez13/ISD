@@ -377,6 +377,9 @@ build-tests: $(STAMP_TOOLCHAIN) $(STAMP_UAPI)
 # host-side smoke uses.
 compat-links: build-packages build-services
 	@mkdir -p "$(OUT_ARCH)" "$(SMOKE_OUT)" "$(TESTS_OUT)"
+	@# Trees from before variant-scoped products kept a real out/<arch>/product.
+	@if [ -d "$(OUT_ARCH)/product" ] && [ ! -L "$(OUT_ARCH)/product" ]; then \
+		rm -rf "$(OUT_ARCH)/product"; fi
 	@ln -sfn "$(PRODUCT_OUT)/busybox-full" "$(OUT_ARCH)/busybox-full"
 	@ln -sfn "$(PRODUCT_OUT)/busybox-auth" "$(OUT_ARCH)/busybox-auth"
 	@ln -sfn "$(PRODUCT_OUT)/bin" "$(OUT_ARCH)/bin"

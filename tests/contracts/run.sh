@@ -422,6 +422,13 @@ grep -q '^update-machine:' Makefile && ok "H update-machine target" || bad "H no
 vid=$(ARCH=x86_64 PROFILE=minimal bash scripts/compute-variant-id.sh)
 echo "$vid" | grep -q '^minimal-[0-9a-f]\{12\}$' \
 	&& ok "H variant id content hash" || bad "H variant id: $vid"
+# The toolchain layer must not override the variant-scoped layout from
+# mk/paths.mk: stamps and products have to live in the same variant.
+mk_paths=$(make -s -pn x86-64 minimal build-runit 2>/dev/null \
+	| grep -E '^(PRODUCT_OUT|STAMP_PACKAGES) :=' || true)
+echo "$mk_paths" | grep -q '^PRODUCT_OUT := .*/variants/minimal-[0-9a-f]*/product$' \
+	&& ok "H product tree is variant-scoped like its stamps" \
+	|| bad "H product tree escapes the variant: $(echo $mk_paths)"
 # Re-exporting identical headers (new UAPI stamp, same content) must keep the
 # variant: otherwise every package rebuilds into a fresh variants/ tree.
 uapi_stamp=out/x86_64/stamps/uapi/headers
