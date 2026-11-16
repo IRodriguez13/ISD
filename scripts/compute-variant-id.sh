@@ -3,7 +3,7 @@
 # Content-aware build variant id (profile + packages + config + UAPI fingerprint).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 ARCH="${ARCH:-x86_64}"
 PROFILE="${PROFILE:-minimal}"
 CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"

@@ -1,0 +1,4 @@
+# PID 1 implementations, selected exclusively by the profile/configurator.
+openrc
+runit
+sysvinit

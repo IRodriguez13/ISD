@@ -24,6 +24,20 @@ core (busybox runit)
 
 Applets: profile `applets.txt` plus `.isdconfig.d/<profile>` `CONFIG_APPLET_*=y`.
 
+## Logical package catalog
+
+Recipe directories stay flat at `packages/<name>/` because source caches,
+download paths and build stamps use that stable identity.  The checked,
+human-facing grouping is in `packages/catalog/*.list`; it drives the sections
+of `make isdconfig` without making every category change invalidate a build.
+
+```sh
+make package-catalog-check
+```
+
+Every buildable recipe appears exactly once in that catalog.  It classifies
+product intent only; build dependencies remain explicit in `Makefile`.
+
 ## Exact custom images
 
 `make isdconfig PROFILE=custom` enumerates every packaged recipe and offers
@@ -82,6 +96,7 @@ Keep empty overlay dirs with `.keep` so the tree exists in git.
 | `CONFIG_PKG_NANO` | `packages/nano/` | `/usr/bin/nano` (+ auto `ncurses`) |
 | `CONFIG_PKG_NCURSES` | `packages/ncurses/` | (library for nano) |
 | `CONFIG_PKG_OPENDOAS` | `packages/opendoas/` | `/usr/bin/doas` |
+| `CONFIG_PKG_SUDO` | `packages/sudo/` | `/usr/bin/sudo` |
 | `CONFIG_PKG_GNUMAKE` | `packages/gnumake/` | `/usr/bin/make`, `/bin/make` |
 | `CONFIG_PKG_TINYCC` | `packages/tinycc/` | `/usr/bin/tcc`, `/lib/tcc/`, musl CRT/headers |
 | `CONFIG_PKG_DOOM` | `packages/doom/` | `/usr/ken/games/doom`, `/usr/share/doom/doom1.wad` |

@@ -3,7 +3,7 @@
 # Machine-readable artifact manifest for IR0 bridge (no internal out/ paths in kernel).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 ARCH="${ARCH:-x86_64}"
 PROFILE="${PROFILE:-minimal}"
 PROF_CONF="${ROOT}/profiles/${PROFILE}/profile.conf"

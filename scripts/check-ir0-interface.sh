@@ -3,7 +3,7 @@
 # Verify IR0_ROOT publishes a compatible IR0_ISD_INTERFACE for ISD builds.
 set -euo pipefail
 
-ISD_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ISD_ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 IR0_ROOT="${1:-${IR0_ROOT:-}}"
 
 if [ -z "$IR0_ROOT" ]; then

@@ -52,6 +52,40 @@ def packaged_recipes() -> dict[str, str]:
 
 
 PACKAGE_RECIPES = packaged_recipes()
+
+
+def package_catalog(recipes: dict[str, str]) -> dict[str, str]:
+    """Return recipe directory -> checked logical package category.
+
+    Build recipes stay flat at packages/<name>: that path is part of the
+    download, source-cache and stamp contract.  packages/catalog/*.list is
+    the human-facing organization consumed by this configurator.
+    """
+    result: dict[str, str] = {}
+    catalog = ROOT / "packages" / "catalog"
+    if not catalog.is_dir():
+        return result
+    known = set(recipes.values())
+    for listing in sorted(catalog.glob("*.list")):
+        category = listing.stem
+        for raw in listing.read_text(encoding="utf-8", errors="replace").splitlines():
+            name = raw.strip()
+            if not name or name.startswith("#"):
+                continue
+            if name not in known or name in result:
+                continue
+            result[name] = category
+    return result
+
+
+PACKAGE_CATALOG = package_catalog(PACKAGE_RECIPES)
+PACKAGE_SECTION_TITLES = {
+    "administration": "Security and administration",
+    "development": "Development tools",
+    "desktop": "Graphical desktop and X11",
+    "applications": "Applications",
+    "libraries": "Libraries and system software",
+}
 # Init is selected separately and BusyBox is immutable core. Everything else
 # is an exact, user-selectable package in the custom-distro menu.
 EXTRAS = tuple(
@@ -653,17 +687,9 @@ def _open_menu_streams():
 
 
 def _package_section(short: str) -> str:
-    if short in {"OPENDOAS", "SUDO"}:
-        return "Security and administration"
-    if short in {"TINYCC", "GNUMAKE", "PACK_EXTRACT", "NANO", "NCURSES"}:
-        return "Development tools"
-    if short.startswith(("X", "LIBX", "FONT_")) or short in {
-        "TINYX", "TWM", "FREETYPE", "LIBFONTENC", "ZLIB"
-    }:
-        return "Graphical desktop and X11"
-    if short in {"DOOM", "IV"}:
-        return "Applications"
-    return "Libraries and system software"
+    name = pkg_dirname(short)
+    category = PACKAGE_CATALOG.get(name, "libraries")
+    return PACKAGE_SECTION_TITLES.get(category, "Libraries and system software")
 
 
 def _package_label(short: str) -> str:
@@ -682,13 +708,7 @@ def _menuconfig(path: Path, profile: str, data: dict[str, str]) -> int:
             ("choice", "INIT_SYSTEM", "Init system"),
             ("choice", "LIBC", "C library"),
         ])
-    sections = (
-        "Security and administration",
-        "Development tools",
-        "Graphical desktop and X11",
-        "Applications",
-        "Libraries and system software",
-    )
+    sections = tuple(PACKAGE_SECTION_TITLES.values())
     for section in sections:
         members = [short for short in EXTRAS if _package_section(short) == section]
         if not members:

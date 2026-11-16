@@ -50,7 +50,7 @@ rootfs tree → image-minix | rootfs-tar | (future: cpio, ext2, 9p)
 | `minimal` | **Canonical** interactive minimum |
 | `development` | Lab: optional root autologin, diagnostics, smokes |
 | `appliance` | Services without interactive login |
-| `desktop` | minimal + IR0-desktop prep (doas, nano, ncurses, tinycc, gnumake, doom) |
+| `desktop` | minimal + IR0-desktop prep (sudo, nano, ncurses, tinycc, gnumake, doom) |
 
 Default `PROFILE` is `minimal`.
 

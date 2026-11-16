@@ -1,0 +1,3 @@
+# Privilege elevation tools.  The resolver allows exactly one per image.
+opendoas
+sudo

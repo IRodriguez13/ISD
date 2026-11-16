@@ -15,9 +15,9 @@ Each profile directory contains:
 
 | Profile | Login | Root | Packages (extra) | Purpose |
 |---------|-------|------|------------------|---------|
-| minimal | firstboot | locked | — | Canonical distro |
-| development | root autologin | lab empty pw | doas nano ncurses | Lab / smokes |
-| desktop | firstboot | noroot | doas nano ncurses **tinycc gnumake doom** + X11 | Auto `startx` on console login |
+| minimal | firstboot | locked | sudo | Canonical distro |
+| development | root autologin | lab empty pw | sudo nano ncurses | Lab / smokes |
+| desktop | firstboot | noroot | sudo nano ncurses **tinycc gnumake doom** + X11 | Auto `startx` on console login |
 | desktop-console | firstboot | noroot | same as **desktop** | Terminal first; run `startx` manually |
 | appliance | none | locked | — | Headless services |
 

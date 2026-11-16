@@ -13,6 +13,11 @@
 
 SHELL := /bin/bash
 
+# CDPATH makes Bash's `cd` print the selected directory.  ISD scripts capture
+# canonical paths with command substitutions, so never leak a host CDPATH into
+# a build recipe or rootfs/image tool.
+unexport CDPATH
+
 IR0_ROOT ?= $(abspath $(CURDIR)/../IR0)
 DISK_MB  ?= 200
 HOME_DISK_MB ?= 64
@@ -56,6 +61,7 @@ ROOTFS_INPUTS := \
 .PHONY: all fetch headers build build-packages build-services build-tests \
 	disk rootfs rootfs-tree rootfs-manifest rootfs-tar image-minix image-ext2-root image \
 	profiles-check toolchain-check elf-audit uapi-audit personal-data-check \
+	package-catalog-check \
 	rootfs-check release-check clean distclean help check-kernel check-ir0 \
 	check-ir0-interface isd-contracts isd-verify-rootfs \
 	compat-links isd-defconfig isdconfig validate-config resolve-packages \
@@ -370,6 +376,12 @@ personal-data-check:
 profiles-check: compat-links
 	@chmod +x scripts/profiles-check.sh
 	@PRODUCT_OUT="$(PRODUCT_OUT)" scripts/profiles-check.sh
+
+# Recipes deliberately remain at packages/<name>/ so source/dist caches and
+# stamp paths stay stable.  The catalog gives the configurator and developers
+# a checked semantic grouping without turning a directory move into a rebuild.
+package-catalog-check:
+	@python3 scripts/check-package-catalog.py
 
 # --- rootfs / image ----------------------------------------------------------
 

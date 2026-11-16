@@ -3,7 +3,7 @@
 # ISD contract tests (A–F). No full package rebuild required.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 PASS=0
 FAIL=0
@@ -52,32 +52,35 @@ got2=$(PROFILE=appliance ISD_CONFIG="$CFG2" bash scripts/resolve-packages.sh)
 echo " $got2 " | grep -q ' nano ' && echo " $got2 " | grep -q ' ncurses ' \
 	&& ok "B resolve nano+ncurses" || bad "B resolve missing nano/ncurses: $got2"
 
-# Minimal stays core-only; development owns its toolchain contract.
+# Minimal includes the preferred elevation tool; development owns its toolchain.
 CFG_EMPTY="$TMP/isdconfig-empty"
 : >"$CFG_EMPTY"
 min=$(PROFILE=minimal ISD_CONFIG="$CFG_EMPTY" bash scripts/resolve-packages.sh)
 echo " $min " | grep -q ' busybox ' && echo " $min " | grep -q ' runit ' \
+	&& echo " $min " | grep -q ' sudo ' \
 	&& ! echo " $min " | grep -q ' opendoas ' \
 	&& ! echo " $min " | grep -q ' gnumake ' \
 	&& ! echo " $min " | grep -q ' tinycc ' \
-	&& ok "B minimal packages.txt core-only" || bad "B minimal resolve: $min"
+	&& ok "B minimal packages.txt mandates sudo" || bad "B minimal resolve: $min"
 
 desk=$(PROFILE=desktop ISD_CONFIG="$CFG_EMPTY" bash scripts/resolve-packages.sh)
 echo " $desk " | grep -q ' tinycc ' && echo " $desk " | grep -q ' gnumake ' \
 	&& echo " $desk " | grep -q ' doom ' \
-	&& echo " $desk " | grep -q ' nano ' && echo " $desk " | grep -q ' opendoas ' \
+	&& echo " $desk " | grep -q ' nano ' && echo " $desk " | grep -q ' sudo ' \
 	&& ok "B desktop packages.txt mandates tinycc+gnumake+doom+editor" \
 	|| bad "B desktop resolve: $desk"
 
 dev=$(PROFILE=development ISD_CONFIG="$CFG_EMPTY" bash scripts/resolve-packages.sh)
 echo " $dev " | grep -q ' tinycc ' && echo " $dev " | grep -q ' gnumake ' \
-	&& ok "B development mandates tinycc+gnumake" \
+	&& echo " $dev " | grep -q ' sudo ' \
+	&& ok "B development mandates sudo+tinycc+gnumake" \
 	|| bad "B development resolve: $dev"
 
 CFG3="$TMP/isdconfig-b3"
 PROFILE=minimal ISD_CONFIG="$CFG3" python3 scripts/isdconfig.py --config "$CFG3" defconfig --force
 got3=$(PROFILE=minimal ISD_CONFIG="$CFG3" bash scripts/resolve-packages.sh)
-! echo " $got3 " | grep -q ' opendoas ' && ! echo " $got3 " | grep -q ' nano ' \
+echo " $got3 " | grep -q ' sudo ' && ! echo " $got3 " | grep -q ' opendoas ' \
+	&& ! echo " $got3 " | grep -q ' nano ' \
 	&& ! echo " $got3 " | grep -q ' tinycc ' \
 	&& ok "B minimal defconfig stays clean" || bad "B minimal defconfig resolve: $got3"
 grep -q 'CONFIG_APPLET_TOP=y' "$CFG3" && ok "B defconfig seeds APPLET_TOP" \
@@ -369,6 +372,10 @@ grep -q '^uucp:' rootfs/base/etc/group \
 	&& ok "I base group uucp" || bad "I base group missing uucp"
 grep -q '04755' packages/opendoas/build.sh \
 	&& ok "I opendoas staged setuid" || bad "I opendoas build mode"
+grep -q '04755' packages/sudo/build.sh \
+	&& ok "I sudo staged setuid" || bad "I sudo build mode"
+python3 scripts/check-package-catalog.py >/dev/null \
+	&& ok "I package catalog covers every recipe" || bad "I package catalog invalid"
 grep -q 'INIT_SYSTEM=' scripts/verify-profile-rootfs.sh \
 	&& ok "I verify-profile-rootfs init audit" || bad "I verify init audit"
 
@@ -383,6 +390,12 @@ grep -q 'firstboot.done' scripts/pack-ext2-root.sh \
 	&& ok "J ext2 pack strips firstboot.done" || bad "J ext2 firstboot guard"
 grep -q 'Mount points must stay empty' scripts/pack-ext2-root.sh \
 	&& ok "J ext2 empty proc mountpoint" || bad "J ext2 proc .keep guard"
+grep -q 'DISK_MB_MAX:-128' scripts/estimate-rootfs-ext2.sh \
+	&& ok "J ext2 desktop-sized default cap" || bad "J ext2 cap too small"
+grep -q 'if ! estimate=' scripts/pack-ext2-root.sh \
+	&& ok "J ext2 estimate failure is clean" || bad "J ext2 estimate failure leaks unset variable"
+grep -q 'leaking those numeric IDs' scripts/pack-ext2-root.sh \
+	&& ok "J ext2 normalizes host ownership" || bad "J ext2 leaks host ownership"
 grep -q 'mkfs.ext2.*-d' scripts/pack-ext2-root.sh \
 	&& ok "J ext2 mkfs -d populate" || bad "J ext2 mkfs -d"
 grep -q '^ROOTFS_PACK=minix$' profiles/minimal/profile.conf \

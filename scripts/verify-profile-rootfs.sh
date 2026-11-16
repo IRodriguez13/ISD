@@ -6,7 +6,7 @@ set -euo pipefail
 TREE="${1:?usage: verify-profile-rootfs.sh ROOTFS_TREE}"
 PROFILE="${PROFILE:-minimal}"
 ARCH="${ARCH:-x86_64}"
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 fail=0
 
 err() { echo "✗ $*" >&2; fail=1; }

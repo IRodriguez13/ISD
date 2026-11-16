@@ -5,7 +5,7 @@
 # Auto-dep: nano → ncurses. Missing recipes are hard errors (no silent omit).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 # shellcheck disable=SC1091
 source "${ROOT}/scripts/admin-elevation.sh"
 PROFILE="${PROFILE:-minimal}"

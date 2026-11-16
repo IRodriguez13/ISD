@@ -1,4 +1,5 @@
 busybox
 runit
+sudo
 tinycc
 gnumake

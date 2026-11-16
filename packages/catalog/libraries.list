@@ -1,0 +1,2 @@
+# General-purpose compression library used by package and X11 recipes.
+zlib

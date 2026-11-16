@@ -1,0 +1,2 @@
+# Minimal userland base.  Recipe paths remain packages/<name>/.
+busybox

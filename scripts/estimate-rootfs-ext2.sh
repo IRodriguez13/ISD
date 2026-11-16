@@ -5,7 +5,10 @@ set -euo pipefail
 
 TREE="${1:?usage: estimate-rootfs-ext2.sh ROOTFS_TREE}"
 DISK_MB_MIN="${DISK_MB_MIN:-32}"
-DISK_MB_MAX="${DISK_MB_MAX:-64}"
+# IR0's current ext2 backend uses 4 KiB blocks and a single block group.  A
+# 128 MiB image is the largest safe default (32768 blocks/group) and leaves
+# enough room for the complete desktop rootfs.
+DISK_MB_MAX="${DISK_MB_MAX:-128}"
 DISK_MB_FLOOR="${EXT2_DISK_MB_FLOOR:-32}"
 
 if [ ! -d "$TREE" ]; then

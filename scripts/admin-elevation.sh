@@ -5,7 +5,7 @@
 # Override: .isdconfig.d/<profile> ADMIN_ELEVATION=… or CONFIG_PKG_SUDO=y.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROFILE="${PROFILE:-minimal}"
 CFG="${ISD_CONFIG:-${ROOT}/.isdconfig.d/${PROFILE}}"
 PROF_CONF="${ROOT}/profiles/${PROFILE}/profile.conf"
