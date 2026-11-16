@@ -122,7 +122,7 @@ check-ir0: check-kernel
 
 isd-contracts:
 	@chmod +x tests/contracts/run.sh
-	@./tests/contracts/run.sh
+	@IR0_ROOT="$(IR0_ROOT)" ./tests/contracts/run.sh
 
 isd-verify-rootfs: rootfs-tree personal-data-check rootfs-check rootfs-manifest
 	@chmod +x scripts/verify-profile-rootfs.sh

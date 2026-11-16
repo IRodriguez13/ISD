@@ -273,9 +273,9 @@ grep -A2 '^\$(STAMP_SERVICES):' Makefile | grep -q 'STAMP_UAPI' \
 grep -q 'env -u ARCH make' scripts/install-uapi.sh \
 	&& ok "E install-uapi clears ARCH" || bad "E install-uapi still uses make -s"
 
-# --- F: ensure-host-deps consent (sibling IR0) --------------------------------
+# --- F: ensure-host-deps consent (IR0_ROOT) -----------------------------------
 echo "-- F ensure-host-deps --"
-ENS="../IR0/scripts/ensure-host-deps.sh"
+ENS="${IR0_ROOT:-../IR0}/scripts/ensure-host-deps.sh"
 if [ ! -x "$ENS" ] && [ ! -f "$ENS" ]; then
 	bad "F missing $ENS"
 else
