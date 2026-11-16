@@ -28,6 +28,7 @@ ARCH     ?= x86_64
 ISD_JOBS ?= 2
 
 include mk/cli.mk
+include mk/targets.mk
 
 # Ensure out/ exists before toolchain stamp generation.
 # Do not mkdir at parse time — it breaks IR0 release-check-clean fresh guard.
@@ -71,12 +72,12 @@ ROOTFS_INPUTS := \
 	disk rootfs rootfs-tree rootfs-manifest rootfs-tar image-minix image-ext2-root image \
 	profiles-check toolchain-check elf-audit uapi-audit personal-data-check \
 	package-catalog-check \
-	rootfs-check release-check clean distclean help check-kernel check-ir0 \
+	rootfs-check release-check distclean help \
 	check-ir0-interface isd-contracts isd-verify-rootfs \
 	compat-links isd-defconfig isdconfig validate-config resolve-packages \
 	plan \
 	print-artifacts print-artifacts-mk update-machine image-ext2-home \
-	ai-dev-rules-install isd clear \
+	ai-dev-rules-install isd clear targets $(ISD_DEPRECATED_NAMES) \
 	$(ISD_SELECTOR_GOALS) \
 	$(addprefix build-,$(RESOLVED_PACKAGES))
 
@@ -99,15 +100,15 @@ help:
 	@echo "  make                         show this help (no probes)"
 	@echo "  make isd                     build desktop for x86-64"
 	@echo "  make x86-64 minimal          build the x86-64 minimal image"
-	@echo "  make arm minimal             build the aarch64 minimal image"
-	@echo "  make x86-64 desktop plan     inspect packages and artifact paths"
-	@echo "  make menuconfig              choose an exact custom distribution"
-	@echo "  make clear [arm|x86-64]      remove outputs for one architecture"
+	@echo "  make arm minimal plan        show what blocks the aarch64 minimal image"
+	@echo "  make x86-64 minimal headers  install IR0 UAPI headers for one ISA"
+	@echo "  make clear arm               remove outputs for one architecture"
 	@echo ""
-	@echo "Profiles: desktop (default), desktop-console, minimal, minimal-openrc,"
-	@echo "          minimal-sysvinit, development, appliance, custom"
-	@echo "Actions:  isd, fetch, build, plan, image-root, rootfs-tree, menuconfig,"
-	@echo "          package-catalog-check, release-check, clear"
+	@echo "Selectors combine with any target: one ISA and one profile."
+	@echo "  ISA:      $(ISD_ARCHES) (aliases: $(filter-out $(ISD_ARCHES),$(ISD_ARCH_ALIASES)))"
+	@echo "  Profiles: $(sort $(ISD_PROFILE_ALIASES)) (default desktop)"
+	@$(foreach g,$(ISD_HELP_GROUPS),echo ""; echo "$(ISD_HELP_TITLE.$(g)):"; \
+		$(foreach t,$(ISD_TARGETS.$(g)),printf '  %-22s %s\n' '$(t)' '$(ISD_HELP.$(t))';))
 	@echo ""
 	@echo "Each build is isolated under out/<arch>/ and sysroot/<arch>/; package"
 	@echo "recipes and downloads remain shared, read-only inputs."
@@ -115,10 +116,6 @@ help:
 check-ir0-interface:
 	@chmod +x scripts/check-ir0-interface.sh scripts/ir0-public-tool.sh
 	@IR0_ROOT="$(IR0_ROOT)" scripts/check-ir0-interface.sh
-
-check-kernel: check-ir0-interface
-
-check-ir0: check-kernel
 
 isd-contracts:
 	@chmod +x tests/contracts/run.sh
@@ -447,7 +444,7 @@ rootfs-tar: rootfs-manifest
 		-C "$(ROOTFS_DIR)" -cf "$(ROOTFS_DIR).tar" .
 	@echo "✓ rootfs-tar $(ROOTFS_DIR).tar"
 
-$(DISK): | check-ir0
+$(DISK): | check-ir0-interface
 	@mkdir -p $(dir $(DISK))
 	@echo "  DISK    $(DISK) ($(DISK_MB)M MINIX)"
 	@dd if=/dev/zero of=$(DISK) bs=1M count=$(DISK_MB) status=none
@@ -457,7 +454,7 @@ $(DISK): | check-ir0
 disk: $(DISK)
 
 $(STAMP_IMAGE): $(STAMP_ROOTFS) $(DISK) scripts/pack-minix.sh scripts/stamp-run.sh \
-		| check-ir0
+		| check-ir0-interface
 	@chmod +x scripts/pack-minix.sh scripts/stamp-run.sh
 	@mkdir -p "$(dir $@)" "$(IMAGE_DIR)"
 	@scripts/stamp-run.sh $@ -- env IR0_ROOT="$(IR0_ROOT)" ARCH="$(ARCH)" \
@@ -493,11 +490,6 @@ image-root: $(STAMP_ROOTFS) scripts/fs-image.sh scripts/stamp-run.sh \
 	scripts/stamp-run.sh "$$STAMP" -- \
 		scripts/fs-image.sh populate "$$ROOT_FS" "$(ROOTFS_DIR)" "$$DISK"
 
-# Backward-compatible alias used by the kernel tree (MINIX product default).
-rootfs: image-minix
-
-image: image-root
-
 image-ext2-home:
 	@mkdir -p "$(IMAGE_DIR)"
 	@chmod +x scripts/create-ext2-home.sh
@@ -522,8 +514,6 @@ release-check: check-ir0-interface toolchain-check elf-audit uapi-audit profiles
 clear:
 	@rm -rf "$(OUT_ARCH)" "$(CURDIR)/sysroot/$(ARCH)"
 	@echo "✓ clear ARCH=$(ARCH) (out/$(ARCH) + sysroot/$(ARCH) removed)"
-
-clean: clear
 
 # Drop unpacked sources too (re-fetch or re-unpack from dist/ next time).
 # Downloaded tarballs under packages/*/dist are preserved.

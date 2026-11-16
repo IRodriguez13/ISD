@@ -11,12 +11,18 @@ ok() { echo "  OK  $*"; PASS=$((PASS + 1)); }
 bad() { echo "  FAIL $*"; FAIL=$((FAIL + 1)); }
 
 chmod +x scripts/stamp-run.sh scripts/resolve-packages.sh scripts/isdconfig.py \
-	scripts/install-uapi.sh scripts/stage-rootfs.sh 2>/dev/null || true
+	scripts/install-uapi.sh scripts/stage-rootfs.sh scripts/check-make-help.sh \
+	scripts/arch-policy.sh 2>/dev/null || true
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 echo "=== ISD contracts (A–H) ==="
+
+# --- M: Make interface (mk/targets.mk ↔ make help) --------------------------
+echo "-- M make help --"
+help_check=$(scripts/check-make-help.sh 2>&1) && ok "M every target classified, public ones described" \
+	|| bad "M make help drift: $help_check"
 
 # --- R: ISA registry (packages/arch/<isa>/) ---------------------------------
 echo "-- R ISA registry --"
