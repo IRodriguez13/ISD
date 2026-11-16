@@ -184,7 +184,8 @@ update-machine:
 
 # --- stamps: toolchain / UAPI ------------------------------------------------
 
-$(STAMP_TOOLCHAIN): scripts/toolchain.sh scripts/stamp-run.sh
+$(STAMP_TOOLCHAIN): scripts/toolchain.sh scripts/stamp-run.sh \
+		scripts/arch-policy.sh packages/arch/$(ARCH)/arch.conf
 	@chmod +x scripts/stamp-run.sh scripts/toolchain.sh
 	@scripts/stamp-run.sh $@ -- bash -c 'ARCH=$(ARCH) source scripts/toolchain.sh && \
 		echo "  TC      $$CC" && $$CC --version | head -1'

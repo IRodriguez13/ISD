@@ -18,6 +18,40 @@ trap 'rm -rf "$TMP"' EXIT
 
 echo "=== ISD contracts (A–H) ==="
 
+# --- R: ISA registry (packages/arch/<isa>/) ---------------------------------
+echo "-- R ISA registry --"
+reg_ok=1
+for dir in packages/arch/*/; do
+	isa=$(basename "$dir")
+	[ -f "$dir/arch.conf" ] && [ -f "$dir/aliases" ] && [ -f "$dir/support" ] \
+		|| { reg_ok=0; echo "    $isa: missing arch.conf/aliases/support"; continue; }
+	( source "$dir/arch.conf"; [ -n "${ISD_ARCH_TRIPLE:-}" ] \
+		&& [ -n "${ISD_ARCH_ELF_MACHINE:-}" ] ) \
+		|| { reg_ok=0; echo "    $isa: arch.conf incomplete"; }
+	[ "$(scripts/arch-policy.sh canonical "$isa")" = "$isa" ] || reg_ok=0
+	for alias in $(cat "$dir/aliases"); do
+		[ "$(scripts/arch-policy.sh canonical "$alias")" = "$isa" ] \
+			|| { reg_ok=0; echo "    alias $alias does not map to $isa"; }
+	done
+done
+dup_alias=$(cat packages/arch/*/aliases | tr ' ' '\n' | sed '/^$/d' | sort | uniq -d)
+[ -z "$dup_alias" ] || { reg_ok=0; echo "    duplicate aliases: $dup_alias"; }
+[ "$reg_ok" -eq 1 ] && ok "R every ISA directory is complete and aliases are unique" \
+	|| bad "R ISA registry incomplete"
+[ "$(scripts/arch-policy.sh status arm64 busybox sudo | tr '\n' ' ')" = \
+	"busybox buildable sudo blocked-by-package " ] \
+	&& ok "R aarch64 package status comes from packages/arch/aarch64/support" \
+	|| bad "R aarch64 package status"
+IR0_TOOLCHAIN_OPTIONAL=1 ARCH=amd64 bash -c 'source scripts/toolchain.sh; \
+	[ "$ARCH/$TARGET_TRIPLE/$(toolchain_pkg_status busybox)" = \
+	  x86_64/x86_64-linux-musl/supported ]' \
+	&& ok "R toolchain resolves ISA facts through the registry" \
+	|| bad "R toolchain ISA facts"
+isa_branches=$(grep -rnE 'case "?\$\{?ARCH|ifn?eq \(\$\(ARCH\)|"\$\{?ARCH\}?" *!?=+ *"?(x86|aarch|arm|amd)' \
+	scripts mk Makefile packages/*/build.sh packages/*/fetch.sh 2>/dev/null || true)
+[ -z "$isa_branches" ] && ok "R no ISA branches outside packages/arch" \
+	|| bad "R ISA branch outside packages/arch: $isa_branches"
+
 # --- A: stamp-run writes only on success; skip leaves stamp untouched --------
 echo "-- A stamp-run --"
 ST="$TMP/stamp-a"

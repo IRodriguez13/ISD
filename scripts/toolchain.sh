@@ -12,21 +12,16 @@ set -euo pipefail
 
 _ROOT="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-ARCH="${ARCH:-x86_64}"
-case "$ARCH" in
-x86_64|amd64)
-	ARCH=x86_64
-	TARGET_TRIPLE="${TARGET_TRIPLE:-x86_64-linux-musl}"
-	;;
-aarch64|arm64)
-	ARCH=aarch64
-	TARGET_TRIPLE="${TARGET_TRIPLE:-aarch64-linux-musl}"
-	;;
-*)
-	echo "✗ unsupported ARCH=$ARCH (x86_64|aarch64)" >&2
+# ISA facts (aliases, triple, package policy) live in packages/arch/<isa>/.
+# shellcheck source=scripts/arch-policy.sh
+source "${_ROOT}/scripts/arch-policy.sh"
+if ! _isd_arch="$(isd_arch_canonical "${ARCH:-x86_64}")"; then
+	echo "✗ unsupported ARCH=${ARCH:-} ($(isd_arch_list | paste -sd '|'))" >&2
 	return 1 2>/dev/null || exit 1
-	;;
-esac
+fi
+ARCH="$_isd_arch"
+isd_arch_load "$ARCH"
+TARGET_TRIPLE="${TARGET_TRIPLE:-$ISD_ARCH_TRIPLE}"
 
 CROSS_COMPILE="${CROSS_COMPILE:-}"
 
@@ -65,13 +60,10 @@ _resolve_cc()
 		fi
 	fi
 	# Host musl-gcc only when targeting the host arch.
-	if [ "$ARCH" = "x86_64" ] && command -v musl-gcc >/dev/null 2>&1; then
-		local host
-		host="$(uname -m)"
-		if [ "$host" = "x86_64" ] || [ "$host" = "amd64" ]; then
-			CC="$(command -v musl-gcc)"
-			return 0
-		fi
+	if command -v musl-gcc >/dev/null 2>&1 && \
+		[ "$(isd_arch_canonical "$(uname -m)" || true)" = "$ARCH" ]; then
+		CC="$(command -v musl-gcc)"
+		return 0
 	fi
 	echo "✗ no toolchain for ARCH=$ARCH TARGET_TRIPLE=$TARGET_TRIPLE" >&2
 	echo "  set CC= or CROSS_COMPILE= or install ${TARGET_TRIPLE}-gcc" >&2
@@ -131,34 +123,11 @@ export ARCH TARGET_TRIPLE CROSS_COMPILE CC AR RANLIB STRIP READELF OBJCOPY
 export OUT_ARCH PRODUCT_OUT TESTS_OUT SMOKE_OUT ROOTFS_OUT
 export IR0_UAPI_SYSROOT SYSROOT MUSL_CC OUT
 
-# Package support matrix (honest classification)
+# Package support status for this ISA (packages/arch/<isa>/support).
 toolchain_pkg_status()
 {
-	local pkg="$1"
-	case "$ARCH" in
-	x86_64)
-		echo "supported"
-		;;
-	aarch64)
-		case "$pkg" in
-		busybox|runit)
-			echo "buildable"
-			;;
-		font-cursor-misc|font-misc-misc|font-adobe-75dpi)
-			echo "buildable"
-			;;
-		opendoas|sudo|ncurses|nano|tinycc|gnumake|doom|iv|pack-extract|xorgproto|xcb-proto|xtrans|libxau|libxdmcp|libxcb|libx11|libxext|libice|libsm|libxt|libxmu|libxfixes|libxi|libxtst|zlib|freetype|libfontenc|libxfont|tinyx|xauth|xinit|xcalc|xmessage)
-			echo "blocked-by-package"
-			;;
-		*)
-			echo "unsupported"
-			;;
-		esac
-		;;
-	*)
-		echo "unsupported"
-		;;
-	esac
+	isd_arch_package_status "$ARCH" "$1"
 }
 
-export -f toolchain_pkg_status 2>/dev/null || true
+export ISD_ARCH_REGISTRY ISD_ARCH_ELF_MACHINE
+export -f toolchain_pkg_status isd_arch_package_status 2>/dev/null || true

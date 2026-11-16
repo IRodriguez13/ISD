@@ -5,6 +5,10 @@
 Each `packages/<pkg>/` provides `version`, `url`, `sha256`, `build.sh`.
 Build tools come only from `scripts/toolchain.sh`.
 
+Recipes are shared by every ISA and must not branch on `$ARCH`. Which ISAs can
+build a recipe is declared once, in `packages/arch/<isa>/support`
+(see `packages/arch/README.md`).
+
 **Upstream patches:** canonical tree `patches/<pkg>/` (see `Documentation/PATCHES.md`,
 `Documentation/ai_driven_dev/rules/isd-upstream-patches-only.md`). Applied by
 `scripts/apply-isd-patches.sh` on fetch and before X autotools builds. Install

@@ -2,28 +2,25 @@
 # Human-oriented ISD command line.  Keep this file dependency-free: `make`
 # and `make help` must not resolve packages, probe a compiler, or touch out/.
 
-ISD_ARCH_ALIASES := x86 x86-64 x86_64 arm arm64 aarch64
+# ISAs come from the registry: packages/arch/<isa>/ with its aliases file.
+# Adding an ISA adds a directory; no selector list or branch is edited here.
+ISD_ARCHES := $(patsubst packages/arch/%/arch.conf,%,\
+	$(wildcard packages/arch/*/arch.conf))
+isd_arch_names = $(1) $(file <packages/arch/$(1)/aliases)
+ISD_ARCH_ALIASES := $(foreach a,$(ISD_ARCHES),$(call isd_arch_names,$(a)))
 ISD_PROFILE_ALIASES := appliance custom desktop desktop-console development \
 	minimal minimal-openrc minimal-sysvinit
 ISD_SELECTOR_GOALS := $(ISD_ARCH_ALIASES) $(ISD_PROFILE_ALIASES)
 ISD_ACTION_GOALS := $(filter-out $(ISD_SELECTOR_GOALS),$(MAKECMDGOALS))
 
-ISD_X86_GOALS := $(filter x86 x86-64 x86_64,$(MAKECMDGOALS))
-ISD_ARM_GOALS := $(filter arm arm64 aarch64,$(MAKECMDGOALS))
-ifneq ($(strip $(ISD_X86_GOALS)),)
-ifneq ($(strip $(ISD_ARM_GOALS)),)
-$(error select one architecture: x86-64 or arm)
+ISD_SELECTED_ARCHES := $(foreach a,$(ISD_ARCHES),\
+	$(if $(filter $(call isd_arch_names,$(a)),$(MAKECMDGOALS)),$(a)))
+ifneq ($(words $(ISD_SELECTED_ARCHES)),0)
+ifneq ($(words $(ISD_SELECTED_ARCHES)),1)
+$(error select one architecture, not $(strip $(ISD_SELECTED_ARCHES)))
 endif
-endif
-
-ifneq ($(strip $(ISD_X86_GOALS)),)
 ifneq ($(origin ARCH),command line)
-ARCH := x86_64
-endif
-endif
-ifneq ($(strip $(ISD_ARM_GOALS)),)
-ifneq ($(origin ARCH),command line)
-ARCH := aarch64
+ARCH := $(strip $(ISD_SELECTED_ARCHES))
 endif
 endif
 

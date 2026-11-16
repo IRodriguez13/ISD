@@ -8,14 +8,6 @@ source "${ROOT}/scripts/toolchain.sh"
 PRODUCT_OUT="${PRODUCT_OUT:-${ROOT}/out/${ARCH}/product}"
 READELF="${READELF:-readelf}"
 
-expect_machine()
-{
-	case "$ARCH" in
-	x86_64) echo "Advanced Micro Devices X86-64|X86-64|EM_X86_64" ;;
-	aarch64) echo "AArch64|ARM aarch64|EM_AARCH64" ;;
-	esac
-}
-
 export LC_ALL=C LANG=C
 fail=0
 shopt -s nullglob
@@ -33,7 +25,7 @@ do
 		fail=1
 		continue
 	fi
-	if ! echo "$info" | grep -qiE "$(expect_machine)"; then
+	if ! echo "$info" | grep -qiE "$ISD_ARCH_ELF_MACHINE"; then
 		echo "✗ wrong machine for ARCH=$ARCH: $bin" >&2
 		echo "$info" | grep -i machine || true
 		fail=1

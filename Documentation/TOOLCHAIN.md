@@ -1,7 +1,8 @@
 # Toolchain and targets
 
-> **Last verified:** 2026-07-26  
-> **Source of truth:** `scripts/toolchain.sh`, `mk/toolchain.mk`
+> **Last verified:** 2026-11-16  
+> **Source of truth:** `packages/arch/<isa>/`, `scripts/arch-policy.sh`,
+> `scripts/toolchain.sh`, `mk/toolchain.mk`
 
 ```bash
 make x86-64 desktop toolchain-check
@@ -16,7 +17,8 @@ Variables: `ARCH`, `TARGET_TRIPLE`, `CROSS_COMPILE`, `CC`, `AR`, `RANLIB`,
 
 Outputs: `out/<arch>/{product,tests,smoke,rootfs/<profile>/}`.
 
-| ARCH | busybox/runit | sudo/ncurses/nano |
-|------|---------------|------------------------|
-| x86_64 | supported | supported |
-| aarch64 | buildable | blocked-by-package |
+ISA facts (accepted names, musl triple, ELF machine, per-package support
+status) are data under `packages/arch/<isa>/`; see `packages/arch/README.md`.
+`scripts/arch-policy.sh status <isa> <package>...` prints the status that the
+package stamp enforces, e.g. on aarch64 busybox/runit are `buildable` and
+sudo/ncurses/nano are `blocked-by-package`. x86_64 supports every recipe.

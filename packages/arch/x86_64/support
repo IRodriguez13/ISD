@@ -1,0 +1,4 @@
+# <package> <status>; the first matching row wins and `*` is the default.
+# Statuses: supported buildable blocked-by-package blocked-by-kernel-ABI
+# unsupported. x86_64 is the production ISA: every shared recipe is supported.
+*                    supported
