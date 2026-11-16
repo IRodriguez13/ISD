@@ -7,8 +7,10 @@
 ```bash
 make x86-64 desktop toolchain-check
 make x86-64 desktop build
-make arm minimal plan             # package plan without probing a compiler
-make arm minimal                  # builds once an aarch64-musl toolchain exists
+make arm minimal plan             # plan + ISA blockers, no compiler probe;
+                                  # exits 1 while a package is blocked
+make arm minimal                  # needs an aarch64-musl toolchain and no
+                                  # blocked package in the profile
 make x86-64 desktop elf-audit
 ```
 

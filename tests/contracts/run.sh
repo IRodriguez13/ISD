@@ -57,6 +57,15 @@ support_bad=$(awk -v ok_st=" supported buildable blocked-by-package blocked-by-k
 	' packages/arch/*/support)
 [ -z "$support_bad" ] && ok "R support tables name real recipes and valid statuses" \
 	|| bad "R support tables: $support_bad"
+set +e
+arm_plan=$(make -s arm minimal plan 2>&1)
+arm_plan_rc=$?
+set -e
+[ "$arm_plan_rc" -ne 0 ] && echo "$arm_plan" | grep -q 'sudo (blocked-by-package)' \
+	&& ok "R plan refuses packages the ISA cannot build" \
+	|| bad "R arm minimal plan rc=$arm_plan_rc: $arm_plan"
+make -s x86-64 minimal plan >/dev/null \
+	&& ok "R x86-64 minimal plan stays buildable" || bad "R x86-64 minimal plan"
 isa_branches=$(grep -rnE 'case "?\$\{?ARCH|ifn?eq \(\$\(ARCH\)|"\$\{?ARCH\}?" *!?=+ *"?(x86|aarch|arm|amd)' \
 	scripts mk Makefile packages/*/build.sh packages/*/fetch.sh 2>/dev/null || true)
 [ -z "$isa_branches" ] && ok "R no ISA branches outside packages/arch" \

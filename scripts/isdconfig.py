@@ -554,6 +554,25 @@ def resolved_packages(profile: str, path: Path) -> list[str]:
     return [p for p in proc.stdout.split() if p]
 
 
+def arch_package_status(arch: str, packages: list[str]) -> tuple[str, dict]:
+    """Canonical ISA and per-package status from packages/arch/<isa>/."""
+    policy = str(ROOT / "scripts" / "arch-policy.sh")
+    canon = subprocess.run(
+        ["bash", policy, "canonical", arch], text=True, capture_output=True, check=False
+    )
+    if canon.returncode != 0:
+        raise ConfigError((canon.stderr or f"unknown ARCH={arch}").strip().lstrip("✗ "))
+    isa = canon.stdout.strip()
+    proc = subprocess.run(
+        ["bash", policy, "status", isa, *packages],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    status = dict(line.split(maxsplit=1) for line in proc.stdout.splitlines() if line)
+    return isa, status
+
+
 def build_plan(profile: str, path: Path, arch: str | None = None) -> dict:
     if not profile_exists(profile):
         raise ConfigError(f"unknown profile {profile}")
@@ -569,7 +588,14 @@ def build_plan(profile: str, path: Path, arch: str | None = None) -> dict:
     for pkg in packages:
         if not (ROOT / "packages" / pkg / "build.sh").is_file():
             missing.append(pkg)
-    arch = arch or os.environ.get("ARCH", "x86_64")
+    arch, pkg_status = arch_package_status(
+        arch or os.environ.get("ARCH", "x86_64"), packages
+    )
+    blocked = {
+        pkg: st
+        for pkg, st in pkg_status.items()
+        if pkg not in missing and st not in ("supported", "buildable")
+    }
     payload = {
         "preset": profile,
         "arch": arch,
@@ -580,8 +606,11 @@ def build_plan(profile: str, path: Path, arch: str | None = None) -> dict:
         "admin": admin,
         "packages": packages,
         "unavailable": missing,
+        "blocked": blocked,
         "errors": errors,
-        "status": "buildable" if not errors and not missing else "invalid",
+        "status": "invalid" if errors or missing
+        else "blocked" if blocked
+        else "buildable",
     }
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
@@ -594,6 +623,9 @@ def format_plan(plan: dict) -> str:
     pkgs = "\n".join(f"  {p}" for p in plan.get("packages") or []) or "  (none)"
     missing = plan.get("unavailable") or []
     errors = plan.get("errors") or []
+    blocked_txt = ", ".join(
+        f"{p} ({st})" for p, st in sorted((plan.get("blocked") or {}).items())
+    )
     lines = [
         "ISD build plan",
         "─────────────────────────────────────────",
@@ -609,6 +641,7 @@ def format_plan(plan: dict) -> str:
         pkgs,
         "",
         f"Unavailable:  {', '.join(missing) if missing else 'none'}",
+        f"Blocked:      {blocked_txt or 'none'}",
         f"Config hash:  {plan.get('config_hash')}",
         f"Packages:     {plan.get('status')} (host toolchain not probed)",
     ]
