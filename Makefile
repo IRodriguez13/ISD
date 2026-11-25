@@ -187,8 +187,21 @@ $(STAMP_TOOLCHAIN): scripts/toolchain.sh scripts/stamp-run.sh \
 	@scripts/stamp-run.sh $@ -- bash -c 'ARCH=$(ARCH) source scripts/toolchain.sh && \
 		echo "  TC      $$CC" && $$CC --version | head -1'
 
-$(STAMP_UAPI): $(STAMP_TOOLCHAIN) scripts/install-uapi.sh scripts/stamp-run.sh
-	@chmod +x scripts/install-uapi.sh scripts/stamp-run.sh
+# The stamp is keyed on the content of the headers IR0 exports for this ISA:
+# the key file is rewritten only when that content changes, which then
+# re-runs the install (and what depends on it) instead of reusing a stale tree.
+UAPI_SRC_FP := $(STAMP_DIR)/uapi/src.fp
+
+$(UAPI_SRC_FP): FORCE
+	@mkdir -p $(dir $@)
+	@fp="$$(bash -c 'source scripts/arch-policy.sh; isd_arch_load "$$(isd_arch_canonical $(ARCH))"; \
+		scripts/uapi-fingerprint.sh "$(IR0_ROOT)" "$$ISD_ARCH_IR0_GOAL"' 2>/dev/null || echo none)"; \
+	[ "$$(cat $@ 2>/dev/null)" = "$$fp" ] || printf '%s\n' "$$fp" > $@
+
+FORCE:
+
+$(STAMP_UAPI): $(STAMP_TOOLCHAIN) $(UAPI_SRC_FP) scripts/install-uapi.sh scripts/uapi-fingerprint.sh scripts/stamp-run.sh
+	@chmod +x scripts/install-uapi.sh scripts/uapi-fingerprint.sh scripts/stamp-run.sh
 	@scripts/stamp-run.sh $@ -- env IR0_ROOT="$(IR0_ROOT)" \
 		IR0_UAPI_TARBALL="$(IR0_UAPI_TARBALL)" \
 		IR0_UAPI_SYSROOT="$(IR0_UAPI_SYSROOT)" \
