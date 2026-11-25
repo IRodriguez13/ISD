@@ -39,8 +39,11 @@ fi
 mkdir -p "$OUT_DIR"
 cd "$SRC"
 
-# musl bits/vt.h → #include <linux/vt.h>; host UAPI via -idirafter.
-NANO_CPPFLAGS="-I${INCDIR} -idirafter /usr/include"
+# musl bits/vt.h → #include <linux/vt.h>: take it from the IR0 target UAPI,
+# never from the build host's /usr/include.
+UAPI_INC="${SYSROOT:?SYSROOT (IR0 UAPI) not set}/usr/include"
+[ -f "${UAPI_INC}/linux/vt.h" ] || { echo "✗ IR0 UAPI missing ${UAPI_INC}/linux/vt.h" >&2; exit 1; }
+NANO_CPPFLAGS="-I${INCDIR} -idirafter ${UAPI_INC}"
 NANO_CFLAGS="-Os -fno-pie ${NANO_CPPFLAGS}"
 NANO_LDFLAGS="-static -no-pie -L${LIBDIR}"
 

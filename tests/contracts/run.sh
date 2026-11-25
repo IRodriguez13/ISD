@@ -359,6 +359,13 @@ grep -A2 '^\$(STAMP_SERVICES):' Makefile | grep -q 'STAMP_UAPI' \
 	&& ok "E services ← UAPI" || bad "E services missing UAPI dep"
 grep -q 'headers_install "$IR0_GOAL"' scripts/install-uapi.sh \
 	&& ok "E install-uapi passes the ISA goal" || bad "E install-uapi still uses make -s"
+# Target builds read headers from the IR0 sysroot / musl, never the host.
+if grep -nE -- '-(idirafter|I) ?/usr/include|^[[:space:]]*/usr/include[[:space:]]*$' \
+	packages/nano/build.sh packages/tinycc/build.sh | grep -q .; then
+	bad "E nano/tinycc read host /usr/include"
+else
+	ok "E nano/tinycc use the target sysroot only"
+fi
 # Build-order edges live only in packages/*/package.conf DEPENDS.
 if grep -E '^\$\(STAMP_PACKAGES\)/[a-z0-9-]+:[[:space:]]*\$\(STAMP_PACKAGES\)/[a-z]' Makefile \
 	| grep -v '/%' | grep -q .; then

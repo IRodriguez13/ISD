@@ -41,8 +41,7 @@ fi
 if [ -z "$MUSL_INC" ]; then
 	for d in \
 		/usr/include/"${TARGET_TRIPLE}" \
-		/usr/"${TARGET_TRIPLE}"/include \
-		/usr/include
+		/usr/"${TARGET_TRIPLE}"/include
 	do
 		if [ -f "${d}/stdio.h" ]; then
 			MUSL_INC="$d"
