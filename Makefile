@@ -240,121 +240,13 @@ $(STAMP_PACKAGES)/%: $(STAMP_TOOLCHAIN) packages/%/build.sh scripts/stamp-run.sh
 		ISD_JOBS="$(ISD_JOBS)" \
 		packages/$*/build.sh'
 
-# nano requires ncurses prefix from the ncurses stamp.
-ifneq ($(filter nano,$(RESOLVED_PACKAGES)),)
-$(STAMP_PACKAGES)/nano: $(STAMP_PACKAGES)/ncurses
-endif
-
-# X11 bootstrap order.  Each recipe consumes only the staged prefixes of its
-# declared dependencies; keeping these edges explicit also makes parallel
+# Build order.  packages/<pkg>/package.conf DEPENDS is the single source of
+# every edge (scripts/package-deps.sh); a recipe consumes only the staged
+# prefixes of its declared dependencies, and explicit edges keep parallel
 # profile builds deterministic.
-$(STAMP_PACKAGES)/xtrans: $(STAMP_PACKAGES)/xorgproto
-$(STAMP_PACKAGES)/libxau: $(STAMP_PACKAGES)/xorgproto
-$(STAMP_PACKAGES)/libxdmcp: $(STAMP_PACKAGES)/xorgproto
-$(STAMP_PACKAGES)/libxcb: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/xcb-proto \
-	$(STAMP_PACKAGES)/libxau $(STAMP_PACKAGES)/libxdmcp
-$(STAMP_PACKAGES)/libx11: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/xtrans $(STAMP_PACKAGES)/libxcb
-$(STAMP_PACKAGES)/libxext: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libxau $(STAMP_PACKAGES)/libx11
-$(STAMP_PACKAGES)/libice: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/xtrans
-$(STAMP_PACKAGES)/libsm: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/xtrans $(STAMP_PACKAGES)/libice
-$(STAMP_PACKAGES)/libxt: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libice
-$(STAMP_PACKAGES)/libxmu: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libxt
-$(STAMP_PACKAGES)/libxpm: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt
-$(STAMP_PACKAGES)/libxaw: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxpm
-$(STAMP_PACKAGES)/libxfixes: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11
-$(STAMP_PACKAGES)/libxrender: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11
-$(STAMP_PACKAGES)/libxcursor: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxfixes \
-	$(STAMP_PACKAGES)/libxrender
-$(STAMP_PACKAGES)/libxi: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libxfixes
-$(STAMP_PACKAGES)/libxtst: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libxi
-$(STAMP_PACKAGES)/libfontenc: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/zlib
-$(STAMP_PACKAGES)/libxfont: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/xtrans $(STAMP_PACKAGES)/freetype \
-	$(STAMP_PACKAGES)/libfontenc $(STAMP_PACKAGES)/zlib
-$(STAMP_PACKAGES)/tinyx: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/xtrans $(STAMP_PACKAGES)/libxau \
-	$(STAMP_PACKAGES)/libxdmcp $(STAMP_PACKAGES)/libx11 \
-	$(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libxi $(STAMP_PACKAGES)/libxtst \
-	$(STAMP_PACKAGES)/freetype \
-	$(STAMP_PACKAGES)/libfontenc $(STAMP_PACKAGES)/libxfont \
-	$(STAMP_PACKAGES)/zlib
-$(STAMP_PACKAGES)/tinyx: $(STAMP_PACKAGES)/font-cursor-misc \
-	$(STAMP_PACKAGES)/font-misc-misc \
-	$(STAMP_PACKAGES)/font-adobe-75dpi
-$(STAMP_PACKAGES)/xinit: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/xauth
-$(STAMP_PACKAGES)/xauth: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libxau $(STAMP_PACKAGES)/libx11 \
-	$(STAMP_PACKAGES)/libxext $(STAMP_PACKAGES)/libice \
-	$(STAMP_PACKAGES)/libsm $(STAMP_PACKAGES)/libxt \
-	$(STAMP_PACKAGES)/libxmu
-$(STAMP_PACKAGES)/twm: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu
-$(STAMP_PACKAGES)/xterm: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw \
-	$(STAMP_PACKAGES)/ncurses
-$(STAMP_PACKAGES)/xclock: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxt \
-	$(STAMP_PACKAGES)/libxmu $(STAMP_PACKAGES)/libxpm \
-	$(STAMP_PACKAGES)/libxaw
-$(STAMP_PACKAGES)/xeyes: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxrender
-$(STAMP_PACKAGES)/xlogo: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw \
-	$(STAMP_PACKAGES)/libxrender
-$(STAMP_PACKAGES)/xcalc: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw
-$(STAMP_PACKAGES)/xmessage: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxext \
-	$(STAMP_PACKAGES)/libice $(STAMP_PACKAGES)/libsm \
-	$(STAMP_PACKAGES)/libxt $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxpm $(STAMP_PACKAGES)/libxaw
-$(STAMP_PACKAGES)/xload: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxt \
-	$(STAMP_PACKAGES)/libxmu $(STAMP_PACKAGES)/libxpm \
-	$(STAMP_PACKAGES)/libxaw
-$(STAMP_PACKAGES)/xsetroot: $(STAMP_PACKAGES)/xorgproto \
-	$(STAMP_PACKAGES)/libx11 $(STAMP_PACKAGES)/libxmu \
-	$(STAMP_PACKAGES)/libxfixes $(STAMP_PACKAGES)/libxrender \
-	$(STAMP_PACKAGES)/libxcursor $(STAMP_PACKAGES)/xbitmaps
+$(foreach e,$(shell scripts/package-deps.sh $(RESOLVED_PACKAGES)),\
+	$(eval $(STAMP_PACKAGES)/$(firstword $(subst :, ,$(e))): \
+		$(addprefix $(STAMP_PACKAGES)/,$(wordlist 2,999,$(subst :, ,$(e))))))
 
 $(addprefix build-,$(RESOLVED_PACKAGES)): build-%: $(STAMP_PACKAGES)/%
 	@true

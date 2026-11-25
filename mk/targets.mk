@@ -68,7 +68,7 @@ ISD_HELP.help := show this help (no probes)
 ISD_PUBLIC_TARGETS := $(foreach g,$(ISD_HELP_GROUPS),$(ISD_TARGETS.$(g)))
 
 # all: GNU convention for isd.  targets: machine-readable classification.
-ISD_INTERNAL_TARGETS := all build-packages build-services build-tests \
+ISD_INTERNAL_TARGETS := all FORCE build-packages build-services build-tests \
 	compat-links disk targets
 
 # old:new pairs.  Each old name stays an alias that names its replacement.

@@ -359,6 +359,17 @@ grep -A2 '^\$(STAMP_SERVICES):' Makefile | grep -q 'STAMP_UAPI' \
 	&& ok "E services ← UAPI" || bad "E services missing UAPI dep"
 grep -q 'headers_install "$IR0_GOAL"' scripts/install-uapi.sh \
 	&& ok "E install-uapi passes the ISA goal" || bad "E install-uapi still uses make -s"
+# Build-order edges live only in packages/*/package.conf DEPENDS.
+if grep -E '^\$\(STAMP_PACKAGES\)/[a-z0-9-]+:[[:space:]]*\$\(STAMP_PACKAGES\)/[a-z]' Makefile \
+	| grep -v '/%' | grep -q .; then
+	bad "E Makefile hand-writes package edges (use package.conf DEPENDS)"
+else
+	ok "E package edges come from package.conf"
+fi
+edges="$(make -pn PROFILE=desktop build-packages 2>/dev/null | grep -E '/packages/(tinyx|xinit):')"
+echo "$edges" | grep '/packages/tinyx:' | grep -q 'packages/font-misc-misc' \
+	&& echo "$edges" | grep '/packages/xinit:' | grep -q 'packages/xauth' \
+	&& ok "E tinyx->fonts and xinit->xauth derived" || bad "E derived edges missing"
 
 # --- F: ensure-host-deps consent (IR0_ROOT) -----------------------------------
 echo "-- F ensure-host-deps --"
@@ -676,7 +687,7 @@ grep -q 'CFLAGS="-Os -fno-pie -no-pie"' packages/zlib/build.sh \
 	&& ok "K zlib PIE probe cannot enable unsafe vsprintf fallback" \
 	|| bad "K zlib secure vsnprintf configure guard missing"
 
-grep -q '^$(STAMP_PACKAGES)/xload:' Makefile \
+grep -q '^DEPENDS=.*libxaw' packages/xload/package.conf \
 	&& ok "K xload dependency edge makes clean parallel builds deterministic" \
 	|| bad "K xload dependency edge missing"
 
@@ -694,7 +705,6 @@ grep -q -- '--with-keysymdefdir=' packages/libx11/build.sh \
 	|| bad "K libX11 isolated keysym lookup missing"
 
 grep -q '^DEPENDS=.*libice.*libsm.*libxt' packages/libxpm/package.conf \
-	&& sed -n '/^$(STAMP_PACKAGES)\/libxpm:/,/^$(STAMP_PACKAGES)\/libxaw:/p' Makefile | grep -q '$(STAMP_PACKAGES)/libxt' \
 	&& ok "K libXpm static link dependencies are ordered explicitly" \
 	|| bad "K libXpm static dependency ordering missing"
 
