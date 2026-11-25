@@ -32,6 +32,7 @@ for dir in packages/arch/*/; do
 	[ -f "$dir/arch.conf" ] && [ -f "$dir/aliases" ] && [ -f "$dir/support" ] \
 		|| { reg_ok=0; echo "    $isa: missing arch.conf/aliases/support"; continue; }
 	( source "$dir/arch.conf"; [ -n "${ISD_ARCH_TRIPLE:-}" ] \
+		&& [ -n "${ISD_ARCH_IR0_GOAL:-}" ] \
 		&& [ -n "${ISD_ARCH_ELF_MACHINE:-}" ] ) \
 		|| { reg_ok=0; echo "    $isa: arch.conf incomplete"; }
 	[ "$(scripts/arch-policy.sh canonical "$isa")" = "$isa" ] || reg_ok=0
@@ -356,8 +357,8 @@ echo "$pkg_order" | grep -q 'stamps/uapi/headers' \
 	|| bad "E pkg may build before the UAPI export: $pkg_rule"
 grep -A2 '^\$(STAMP_SERVICES):' Makefile | grep -q 'STAMP_UAPI' \
 	&& ok "E services ← UAPI" || bad "E services missing UAPI dep"
-grep -q 'env -u ARCH make' scripts/install-uapi.sh \
-	&& ok "E install-uapi clears ARCH" || bad "E install-uapi still uses make -s"
+grep -q 'headers_install "$IR0_GOAL"' scripts/install-uapi.sh \
+	&& ok "E install-uapi passes the ISA goal" || bad "E install-uapi still uses make -s"
 
 # --- F: ensure-host-deps consent (IR0_ROOT) -----------------------------------
 echo "-- F ensure-host-deps --"

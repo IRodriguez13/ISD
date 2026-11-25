@@ -8,6 +8,12 @@ ARCH="${ARCH:-x86_64}"
 DEST="${IR0_UAPI_SYSROOT:-${ROOT}/sysroot/${ARCH}}"
 IR0_ROOT="${IR0_ROOT:-${ROOT}/../IR0}"
 
+# shellcheck source=arch-policy.sh
+source "${ROOT}/scripts/arch-policy.sh"
+isa="$(isd_arch_canonical "$ARCH")" || { echo "✗ unknown ISA $ARCH" >&2; exit 1; }
+isd_arch_load "$isa"
+IR0_GOAL="${ISD_ARCH_IR0_GOAL:?missing ISD_ARCH_IR0_GOAL for $isa}"
+
 mkdir -p "$DEST"
 
 if [ -n "${IR0_UAPI_TARBALL:-}" ]; then
@@ -21,8 +27,9 @@ elif [ -d "${DEST}/usr/include" ] && [ -n "$(find "${DEST}/usr/include" -name '*
 	echo "  UAPI    using existing $DEST"
 elif [ -f "${IR0_ROOT}/Makefile" ]; then
 	echo "  UAPI    headers_install from IR0_ROOT=$IR0_ROOT"
-	# Drop inherited ARCH=x86_64 from ISD Make — IR0 headers_install is arch-agnostic.
-	env -u ARCH make -C "$IR0_ROOT" headers_install DESTDIR="$DEST"
+	# IR0 selects the ISA through a goal word (asm/ comes from that ISA);
+	# drop the inherited userspace-style ARCH so only the goal decides.
+	env -u ARCH make -C "$IR0_ROOT" headers_install "$IR0_GOAL" DESTDIR="$DEST"
 else
 	echo "✗ no UAPI source: set IR0_ROOT, IR0_UAPI_TARBALL, or prefill IR0_UAPI_SYSROOT" >&2
 	exit 1
